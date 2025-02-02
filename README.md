@@ -1,2 +1,2 @@
 # arm_kinematics_trajectory
-Kinematics and trajectectory planning and control library of robotic arms
+Kinematics, trajectectory planning and control library, and robot programming (script) language of robotic arms
