@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package>
+    <name>rob_commands</name>
+    <version>0.0.1</version>
+    <description>robot command python binding package</description>
+
+    <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
+
+    <license>proprietary</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+    <build_depend>sensor_msgs</build_depend>
+    <build_depend>geometry_msgs</build_depend>
+    <build_depend>std_msgs</build_depend>
+    <build_depend>roscpp</build_depend>
+    <build_depend>intp</build_depend>
+    <build_depend>scurve_lib</build_depend>
+    
+    <run_depend>sensor_msgs</run_depend>
+    <run_depend>geometry_msgs</run_depend>
+    <run_depend>roscpp</run_depend>
+    <run_depend>std_msgs</run_depend>
+    <run_depend>intp</run_depend>
+    <run_depend>scurve_lib</run_depend>
+    <export>
+    </export>
+</package>
+    

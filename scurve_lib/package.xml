@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package>
+    <name>scurve_lib</name>
+    <version>0.0.1</version>
+    <description> 7-seg smooth speed profile (continuous acceleration) for trajectory planning of robot arm</description>
+
+    <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
+
+    <license>MIT</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+    <build_depend>roscpp</build_depend>
+    <build_depend>Logger</build_depend>
+    
+    <run_depend>roscpp</run_depend>
+    <run_depend>Logger</run_depend>
+    <export>
+    </export>
+</package>
