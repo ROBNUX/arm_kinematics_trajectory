@@ -6,7 +6,7 @@
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
 
-    <license>proprietary</license>
+    <license>MIT</license>
 
     <buildtool_depend>catkin</buildtool_depend>
     <build_depend>sensor_msgs</build_depend>
