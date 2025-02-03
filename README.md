@@ -22,8 +22,9 @@ For example:
 Users can refer to test_script/testQuattro.py for how to use robot commands in python language
 
 
-Finally, this repo. provides many primitive robot motion commands (LINE, PTP, ARC, PTPR, LINER, etc.).
+Also, this repo. provides many primitive robot motion commands (LINE, PTP, ARC, PTPR, LINER, etc.).
 Users can do lots of customization for their application needs.
 
-    
+Finally, this repo. leaves hook for robot program line mapping for supporting  one step motion forward or
+one step motion backward.
 
