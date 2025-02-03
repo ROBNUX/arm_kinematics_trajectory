@@ -1,5 +1,7 @@
 # arm_kinematics_trajectory
-Kinematics, trajectectory planning and control library, and robot programming (script) language of robotic arms
+Kinematics, trajectectory planning and control library, and robot programming (script) language of robotic arms. It
+depends on Eigen3, pybind11, and ros. It fits into the framework of ros, and can be compiled with catkin, and run along
+with ros.
 
 This repo. contains a 7-segment S-curve profile interpolation algorithm for pos/speed/acceleration/jerk planning.
 It also contains continuous smooth trajectory interpolation that creates smooth transitions between multiple
