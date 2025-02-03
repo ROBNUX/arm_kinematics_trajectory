@@ -16,6 +16,14 @@ this will require installing pybind11 first). All robot motion commands will be 
 For example:
 
     from rob_commands import *
+
+    pf = Profile(2, 50, 1500, 2, 50, 1500)   #cartesian profile (max_vel, max_acc, max_jerk, angular_max_vel, angular_max_acc, angular_max_jerk )
+    
+    jpf = JntProfile(20, 50, 200)   # joint space profile (jnt_max_vel, jnt_max_acc, jnt_max_jerk)
+
+    para = np.array([[0.3, -math.pi/2.0, 0.4, 0, 1.02, 0.1, 0, 0.18 * math.sqrt(2)]]).T   # kinematic parameters (check code for the definition of these values)
+
+    defaultBaseOff = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T   # where, w.r.t. world frame, install your robot
     
     rob = Robot("quattro", para, defaultBaseOff, defaultBaseOff, pf)   # create Robot object
     
