@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
     <name>kdl_common</name>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <description>Common Data Structure for the kinematics and dynamics of robot arm</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>

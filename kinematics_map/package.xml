@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
     <name>kinematics_map</name>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <description> Kinamtic map (FK/IK) of robot arm</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>

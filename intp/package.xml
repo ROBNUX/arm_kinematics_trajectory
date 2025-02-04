@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
     <name>intp</name>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <description>The robot interpreter API package</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
