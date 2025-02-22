@@ -9,7 +9,7 @@
 #include <limits>
 #include <ostream>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "kdl_common/common_constants.hpp"
 #include "trajectory/trajectory_exportdecl.h"
 using namespace ROBNUXLogging;

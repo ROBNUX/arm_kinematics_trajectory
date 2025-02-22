@@ -13,14 +13,14 @@
     <build_depend>geometry_msgs</build_depend>
     <build_depend>std_msgs</build_depend>
     <build_depend>roscpp</build_depend>
-    <build_depend>intp</build_depend>
+    <build_depend>dsl_intp</build_depend>
     <build_depend>scurve_lib</build_depend>
     
     <run_depend>sensor_msgs</run_depend>
     <run_depend>geometry_msgs</run_depend>
     <run_depend>roscpp</run_depend>
     <run_depend>std_msgs</run_depend>
-    <run_depend>intp</run_depend>
+    <run_depend>dsl_intp</run_depend>
     <run_depend>scurve_lib</run_depend>
     <export>
     </export>

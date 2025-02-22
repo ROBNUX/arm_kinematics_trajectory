@@ -4,7 +4,7 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    Logger
+    simple_motion_logger
     kdl_common
     kinematics_map
     scurve_lib
@@ -20,7 +20,7 @@ catkin_package(
   LIBRARIES trajectory
   CATKIN_DEPENDS
    roscpp
-   Logger
+   simple_motion_logger
    kdl_common
    kinematics_map
    scurve_lib

@@ -7,7 +7,7 @@
 
 #include <trajectory/move_command.hpp>
 
-#include "intp/intp.hpp"
+#include "dsl_intp/intp.hpp"
 #include "scurve_lib/segment_planning.hpp"
 namespace py = pybind11;
 

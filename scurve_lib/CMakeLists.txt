@@ -4,7 +4,7 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    Logger
+    simple_motion_logger
 )
 
 find_package(Eigen3)
@@ -25,7 +25,7 @@ catkin_package(
   LIBRARIES scurve_lib
   CATKIN_DEPENDS
    roscpp
-   Logger
+   simple_motion_logger
 )
 
 if (WIN32)

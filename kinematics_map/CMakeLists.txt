@@ -5,7 +5,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     pluginlib
-    Logger
+    simple_motion_logger
     kdl_common
 )
 
@@ -28,7 +28,7 @@ catkin_package(
   CATKIN_DEPENDS
    roscpp
    pluginlib
-   Logger
+   simple_motion_logger
    kdl_common
 )
 if (WIN32)

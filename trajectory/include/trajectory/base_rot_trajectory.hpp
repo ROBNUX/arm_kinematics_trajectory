@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "kdl_common/rotation.hpp"
 #include "kdl_common/vec.hpp"
 #include "trajectory/base_profile.hpp"

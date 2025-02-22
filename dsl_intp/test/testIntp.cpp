@@ -1,7 +1,7 @@
 #include <math.h>
 //#include <ros/ros.h>
 #include <signal.h>
-#include "intp/intp.hpp"
+#include "dsl_intp/intp.hpp"
 
 using namespace kinematics_lib;
 static const double RAD2DEG=57.2957805;

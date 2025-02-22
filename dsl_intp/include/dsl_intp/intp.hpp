@@ -12,7 +12,7 @@
 #include "kdl_common/pose.hpp"
 #include "kdl_common/common_constants.hpp"
 #include <eigen3/Eigen/Core>
-#include "intp/intp_exportdecl.h"
+#include "dsl_intp/intp_exportdecl.h"
 #include "ros/ros.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "ros/subscribe_options.h"

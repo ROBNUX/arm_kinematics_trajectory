@@ -8,7 +8,7 @@
 #include <sstream>
 #include <string>
 
-#include "Logger/logger_exportdecl.h"
+#include "simple_motion_logger/logger_exportdecl.h"
 /*
 #ifdef WIN32
 // Win Socket Header File(s)

@@ -4,7 +4,7 @@
 #include <sstream>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "scurve_lib/scurve_exportdecl.h"
 
 using namespace ROBNUXLogging;

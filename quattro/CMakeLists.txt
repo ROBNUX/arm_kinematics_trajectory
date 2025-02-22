@@ -9,7 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
     kinematics_map
     kdl_common
     trajectory
-    Logger
+    simple_motion_logger
 )
 
 catkin_package()

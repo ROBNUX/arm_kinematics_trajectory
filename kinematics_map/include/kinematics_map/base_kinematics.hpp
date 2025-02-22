@@ -6,7 +6,7 @@
 #include <eigen3/Eigen/SVD>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "kdl_common/pose.hpp"
 #include "kdl_common/vec.hpp"
 #include "kinematics_map/kinematics_exportdecl.h"

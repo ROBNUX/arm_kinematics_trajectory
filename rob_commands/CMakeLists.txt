@@ -6,11 +6,10 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     geometry_msgs
     std_msgs
-    intp
+    dsl_intp
     scurve_lib
 )
 include_directories(
-  #include
   ${catkin_INCLUDE_DIRS}
 )
 catkin_package(
@@ -19,7 +18,7 @@ catkin_package(
    sensor_msgs
    geometry_msgs
    std_msgs
-   intp
+   dsl_intp
    scurve_lib
 )
 
@@ -50,14 +49,12 @@ if (WIN32)
   pybind11_add_module(${PROJECT_NAME} src/intp/module_motion_command.cpp)
 TARGET_LINK_LIBRARIES(${PROJECT_NAME}
   PRIVATE
-   intp
+   dsl_intp
    kdl_common
    trajectory
    kinematics_map
-  #Eigen3::Eigen
-  Logger
-  pthreadVC2
-  ${PYTHON_LIBRARIES}
+   pthreadVC2
+   ${PYTHON_LIBRARIES}
 )
 else()
   catkin_python_setup()
@@ -66,11 +63,10 @@ else()
   TARGET_LINK_LIBRARIES(${PROJECT_NAME}
     PRIVATE
     scurve_lib
-    intp
+    dsl_intp
     ${catkin_LIBRARIES})
-    #catkin_install_python(PROGRAMS script/robot.py DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-   install(TARGETS ${PROJECT_NAME}
+  install(TARGETS ${PROJECT_NAME}
      COMPONENT python3
      LIBRARY DESTINATION "/opt/robnux/lib/python3/site-packages"
-   )
+  )
 endif()

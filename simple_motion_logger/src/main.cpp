@@ -1,7 +1,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 
 using namespace std;
 using namespace ROBNUXLogging;
@@ -33,8 +33,8 @@ int main() {
   pLogger->debug("Message Logged using C++ Interface, Log level: LOG_DEBUG");
 
   // Log Variables
-  std::string name = "Pankaj Choudhary";
-  std::string address = "Delhi, India";
+  std::string name = "John H Conway";
+  std::string address = "UK";
   int age = 26;
 
   std::ostringstream ss;

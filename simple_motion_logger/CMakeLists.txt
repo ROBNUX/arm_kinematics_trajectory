@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15...3.19)
-project(Logger)
+project(simple_motion_logger)
 add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -11,7 +11,7 @@ include_directories(
 )
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES Logger
+  LIBRARIES simple_motion_logger
   CATKIN_DEPENDS
    roscpp
 )

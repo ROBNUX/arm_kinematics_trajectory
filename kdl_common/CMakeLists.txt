@@ -4,7 +4,7 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    Logger
+    simple_motion_logger
 )
 include_directories(
   include
@@ -15,7 +15,7 @@ catkin_package(
   LIBRARIES kdl_common
   CATKIN_DEPENDS
    roscpp
-   Logger
+   simple_motion_logger
 )
 if (WIN32)
   set(MYPREFIX_INCLUDE_DIRS "C:/robnux/include")

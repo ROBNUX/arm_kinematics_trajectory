@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15...3.19)
-project(intp)
+project(dsl_intp)
 add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -7,7 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     geometry_msgs
     std_msgs
-    Logger
+    simple_motion_logger
     kdl_common
     kinematics_map
     pluginlib
@@ -16,17 +16,16 @@ find_package(catkin REQUIRED COMPONENTS
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  $ENV{MYPREFIX}/include
 )
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES intp
+  LIBRARIES dsl_intp
   CATKIN_DEPENDS
    roscpp
    sensor_msgs
    geometry_msgs
    std_msgs
-   Logger
+   simple_motion_logger
    kdl_common
    kinematics_map
    pluginlib
@@ -51,8 +50,6 @@ else()
     set(Eigen3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
   endif()
   include_directories(${EIGEN3_INCLUDE_DIRS})
-  include_directories($ENV{MYPREFIX}/include)
-  link_directories ($ENV{MYPREFIX}/lib)
 endif()
 
 add_library(${PROJECT_NAME} SHARED src/intp.cpp)
@@ -63,7 +60,7 @@ if (WIN32)
      kdl_common
      trajectory
      kinematics_map
-     Logger
+     simple_motion_logger
      pthreadVC2
      ${PYTHON_LIBRARIES}
   )
@@ -96,17 +93,17 @@ add_executable(
 if (WIN32)
   TARGET_LINK_LIBRARIES(
      testIntp
-     robIntp
-     kinematics_common
+     dsl_intp
+     kdl_common
      trajectory
      kinematics_map
-     Logger
+     simple_motion_logger
      pthreadVC2
   )
 else()
   TARGET_LINK_LIBRARIES(
      testIntp
-     intp
+     dsl_intp
      ${PYTHON_LIBRARIES}
      ${catkin_LIBRARIES}
      pthread

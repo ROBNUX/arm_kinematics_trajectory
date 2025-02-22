@@ -4,7 +4,7 @@
 #include <iostream>
 
 // Code Specific Header Files(s)
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 
 using namespace std;
 using namespace ROBNUXLogging;

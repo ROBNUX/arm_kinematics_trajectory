@@ -10,10 +10,10 @@
 
     <buildtool_depend>catkin</buildtool_depend>
     <build_depend>roscpp</build_depend>
-    <build_depend>Logger</build_depend>
+    <build_depend>simple_motion_logger</build_depend>
     
     <run_depend>roscpp</run_depend>
-    <run_depend>Logger</run_depend>
+    <run_depend>simple_motion_logger</run_depend>
     <export>
     </export>
 </package>

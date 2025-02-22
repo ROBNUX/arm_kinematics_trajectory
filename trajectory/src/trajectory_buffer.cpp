@@ -1,6 +1,6 @@
 #include "trajectory/trajectory_buffer.hpp"
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 
 using namespace ROBNUXLogging;
 namespace kinematics_lib {

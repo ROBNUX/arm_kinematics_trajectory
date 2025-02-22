@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-    <name>Logger</name>
+    <name>simple_motion_logger</name>
     <version>1.0.0</version>
-    <description>A package for doing simple logging</description>
+    <description>A package for doing simple logging of robot motion related data</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
 

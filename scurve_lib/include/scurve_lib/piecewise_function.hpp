@@ -5,7 +5,7 @@
 #include <sstream>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "scurve_lib/computeRootsUtil.hpp"
 
 using namespace ROBNUXLogging;

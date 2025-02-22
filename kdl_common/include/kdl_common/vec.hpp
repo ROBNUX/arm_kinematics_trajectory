@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "kdl_common/common_constants.hpp"
 #include "kdl_common/common_exportdecl.h"
 

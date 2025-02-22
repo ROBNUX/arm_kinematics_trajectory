@@ -10,7 +10,7 @@
 #include <limits>
 #include <vector>
 
-#include "Logger/Logger.h"
+#include "simple_motion_logger/Logger.h"
 #include "kdl_common/vec.hpp"
 #include "scurve_lib/piecewise_function.hpp"
 #include "scurve_lib/segment_planning.hpp"
