@@ -35,7 +35,7 @@ For example:
     
     rob.MoveLine(loc1, fd, 10)    # robot performs a straight line motion toward loc1
     
-Users can refer to test_script/testQuattro.py for how to use robot commands in python language
+Users can refer to test_robot_language_script/testQuattro.py for how to use robot commands in python language
 
 
 Also, this repo. provides many primitive robot motion commands (LINE, PTP, ARC, PTPR, LINER, etc.).
