@@ -1,0 +1,16 @@
+<class_libraries>
+    <library path="librobnux_kinematics_map">
+        <class name = "quattro" type="kinematics_lib::Quattro" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of Quattro parallel robot </description>
+        </class>
+        <class name = "quattroK" type="kinematics_lib::quattroK" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of Quattro parallel robot of keba convention </description>
+        </class>
+        <class name = "quattro_4" type="kinematics_lib::Quattro_4" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 4-DoF Quattro parallel robot of adept convention </description>
+        </class>
+        <class name = "scara" type="kinematics_lib::Scara" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 4-DoF scara robot of Mitsubishi convention </description>
+        </class>
+    </library>
+</class_libraries>

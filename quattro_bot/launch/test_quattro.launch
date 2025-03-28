@@ -1,0 +1,4 @@
+<launch>	
+    <!-- test_quattro node -->
+    <node required="true" name="quattro" type="quattro" pkg="quattro_bot" respawn="false"/>
+</launch>

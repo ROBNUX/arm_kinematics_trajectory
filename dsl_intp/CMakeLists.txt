@@ -8,10 +8,10 @@ find_package(catkin REQUIRED COMPONENTS
     geometry_msgs
     std_msgs
     simple_motion_logger
-    kdl_common
-    kinematics_map
+    robnux_kdl_common
+    robnux_kinematics_map
     pluginlib
-    trajectory
+    robnux_trajectory
 )
 include_directories(
   include
@@ -26,10 +26,10 @@ catkin_package(
    geometry_msgs
    std_msgs
    simple_motion_logger
-   kdl_common
-   kinematics_map
+   robnux_kdl_common
+   robnux_kinematics_map
    pluginlib
-   trajectory
+   robnux_trajectory
 )
 if (WIN32)
   set(EIGEN3_INCLUDE_DIRS "C:/eigen3/build/install/include")
@@ -57,9 +57,9 @@ add_library(${PROJECT_NAME} SHARED src/intp.cpp)
 if (WIN32)
   TARGET_LINK_LIBRARIES(
      ${PROJECT_NAME}
-     kdl_common
-     trajectory
-     kinematics_map
+     robnux_kdl_common
+     robnux_trajectory
+     robnux_kinematics_map
      simple_motion_logger
      pthreadVC2
      ${PYTHON_LIBRARIES}
@@ -67,7 +67,7 @@ if (WIN32)
 else()
   TARGET_LINK_LIBRARIES(
      ${PROJECT_NAME}
-     trajectory
+     robnux_trajectory
      pthread
      ${PYTHON_LIBRARIES}
     ${catkin_LIBRARIES}
@@ -94,9 +94,9 @@ if (WIN32)
   TARGET_LINK_LIBRARIES(
      testIntp
      dsl_intp
-     kdl_common
-     trajectory
-     kinematics_map
+     robnux_kdl_common
+     robnux_trajectory
+     robnux_kinematics_map
      simple_motion_logger
      pthreadVC2
   )

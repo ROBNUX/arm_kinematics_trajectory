@@ -1,4 +1,0 @@
-<launch>	
-    <!-- test_quattro node -->
-    <node required="true" name="test_quattro_rviz" type="test_quattro_rviz" pkg="quattro" respawn="false"/>
-</launch>

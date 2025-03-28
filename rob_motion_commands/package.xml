@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-    <name>dsl_intp</name>
+    <name>rob_motion_commands</name>
     <version>1.0.0</version>
-    <description>The robot interpreter API package</description>
+    <description>robot motion command python binding package</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
 
@@ -13,21 +13,15 @@
     <build_depend>geometry_msgs</build_depend>
     <build_depend>std_msgs</build_depend>
     <build_depend>roscpp</build_depend>
-    <build_depend>pluginlib</build_depend>
-    <build_depend>simple_motion_logger</build_depend>
-    <build_depend>robnux_kdl_common</build_depend>
-    <build_depend>robnux_kinematics_map</build_depend>
-    <build_depend>robnux_trajectory</build_depend>
-     
+    <build_depend>dsl_intp</build_depend>
+    <build_depend>scurve_lib</build_depend>
+    
     <run_depend>sensor_msgs</run_depend>
     <run_depend>geometry_msgs</run_depend>
     <run_depend>roscpp</run_depend>
     <run_depend>std_msgs</run_depend>
-    <run_depend>pluginlib</run_depend>
-    <run_depend>simple_motion_logger</run_depend>
-    <run_depend>robnux_kdl_common</run_depend>
-    <run_depend>robnux_kinematics_map</run_depend>
-    <run_depend>robnux_trajectory</run_depend>
+    <run_depend>dsl_intp</run_depend>
+    <run_depend>scurve_lib</run_depend>
     <export>
     </export>
 </package>

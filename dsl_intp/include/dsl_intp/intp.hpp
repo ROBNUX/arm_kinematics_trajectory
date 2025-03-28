@@ -3,14 +3,14 @@
  */
 #ifndef ROBINTP_INTP_HPP
 #define ROBINTP_INTP_HPP
-#include "trajectory/move_command.hpp"
-#include "trajectory/trajectory_buffer.hpp"
-#include "trajectory/s_curve.hpp"
-#include "kinematics_map/base_kinematics.hpp"
+#include "robnux_trajectory/move_command.hpp"
+#include "robnux_trajectory/trajectory_buffer.hpp"
+#include "robnux_trajectory/s_curve.hpp"
+#include "robnux_kinematics_map/base_kinematics.hpp"
 #include "std_msgs/Float64.h"
-#include "kdl_common/vec.hpp"
-#include "kdl_common/pose.hpp"
-#include "kdl_common/common_constants.hpp"
+#include "robnux_kdl_common/vec.hpp"
+#include "robnux_kdl_common/pose.hpp"
+#include "robnux_kdl_common/common_constants.hpp"
 #include <eigen3/Eigen/Core>
 #include "dsl_intp/intp_exportdecl.h"
 #include "ros/ros.h"
