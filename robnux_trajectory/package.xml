@@ -1,25 +1,25 @@
 <?xml version="1.0"?>
-<package>
+<package format="3">
     <name>robnux_trajectory</name>
     <version>1.0.0</version>
-    <description> trajectory planning and interpolation (pos, vel, acc, jerk) of robot arm in both joint and Cartesian spaces</description>
+    <description>Trajectory planning and interpolation (pos, vel, acc, jerk) of robot arm in both joint and Cartesian spaces</description>
 
     <maintainer email="leon@robnux.net">Leon Liu, ROBNUX LLC</maintainer>
 
     <license>MIT</license>
 
-    <buildtool_depend>catkin</buildtool_depend>
-    <build_depend>roscpp</build_depend>
+    <buildtool_depend>ament_cmake</buildtool_depend>
+    
     <build_depend>simple_motion_logger</build_depend>
     <build_depend>robnux_kdl_common</build_depend>
     <build_depend>robnux_kinematics_map</build_depend>
     <build_depend>scurve_lib</build_depend>
     
-    <run_depend>roscpp</run_depend>
-    <run_depend>simple_motion_logger</run_depend>
-    <run_depend>robnux_kdl_common</run_depend>
-    <run_depend>robnux_kinematics_map</run_depend>
-    <run_depend>scurve_lib</run_depend>
+    <exec_depend>simple_motion_logger</exec_depend>
+    <exec_depend>robnux_kdl_common</exec_depend>
+    <exec_depend>robnux_kinematics_map</exec_depend>
+    <exec_depend>scurve_lib</exec_depend>
+    
     <export>
     </export>
 </package>

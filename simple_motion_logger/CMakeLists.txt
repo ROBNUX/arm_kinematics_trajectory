@@ -1,20 +1,18 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.16)
 project(simple_motion_logger)
-add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
+
+find_package(ament_cmake REQUIRED)
+
 include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-)
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES simple_motion_logger
-  CATKIN_DEPENDS
-   roscpp
-)
+    include
+  )
+
+ament_export_include_directories(include)
+
 if (WIN32)
   set(MYPREFIX_INCLUDE_DIRS "C:/robnux/include")
   set(MYPREFIX_LINK_DIRS "C:/robnux/lib")
@@ -23,25 +21,27 @@ if (WIN32)
 endif()
 
 INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+    DESTINATION include/${PROJECT_NAME}
 )
 
 add_library(${PROJECT_NAME} SHARED
             src/Logger.cpp)
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${catkin_LIBRARIES})
-add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL LOGGER_EXPORTS)
-INSTALL(TARGETS  ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+
+install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
+
 add_executable(testLogger src/main.cpp)
-TARGET_LINK_LIBRARIES(testLogger ${PROJECT_NAME} ${catkin_LIBRARIES})
-add_dependencies(testLogger ${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
-INSTALL(TARGETS testLogger
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+target_link_libraries(testLogger ${PROJECT_NAME})
+
+install(TARGETS testLogger
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+
+ament_package()

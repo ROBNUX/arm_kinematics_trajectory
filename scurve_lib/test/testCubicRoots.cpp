@@ -1,4 +1,5 @@
 #include "scurve_lib/computeRootsUtil.hpp"
+#include "simple_motion_logger/Logger.h"
 #include <cmath>
 #include <cassert>
 #include <sstream>

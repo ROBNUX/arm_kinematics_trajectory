@@ -1,30 +1,17 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.16)
 project(robnux_trajectory)
-add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    simple_motion_logger
-    robnux_kdl_common
-    robnux_kinematics_map
-    scurve_lib
-)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
 
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-)
+find_package(ament_cmake REQUIRED)
+find_package(simple_motion_logger REQUIRED)
+find_package(robnux_kdl_common REQUIRED)
+find_package(robnux_kinematics_map REQUIRED)
+find_package(scurve_lib REQUIRED)
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES trajectory
-  CATKIN_DEPENDS
-   roscpp
-   simple_motion_logger
-   robnux_kdl_common
-   robnux_kinematics_map
-   scurve_lib
-)
+include_directories(include)
 
 if (WIN32)
   set(MYPREFIX_INCLUDE_DIRS "C:/robnux/include")
@@ -34,7 +21,7 @@ if (WIN32)
 endif()
 
 INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+    DESTINATION include/${PROJECT_NAME}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -50,11 +37,11 @@ add_library(${PROJECT_NAME} SHARED
             src/trajectory_buffer.cpp
             src/base_profile.cpp
            )
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${catkin_LIBRARIES})
-add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL TRAJECTORY_EXPORTS)
-INSTALL(TARGETS  ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
+
+ament_package()

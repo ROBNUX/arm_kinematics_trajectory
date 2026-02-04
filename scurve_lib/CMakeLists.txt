@@ -1,33 +1,21 @@
-cmake_minimum_required(VERSION 3.15...3.19)
+cmake_minimum_required(VERSION 3.16)
 project(scurve_lib)
-add_compile_options(-std=c++11)
 
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    simple_motion_logger
-)
-
-find_package(Eigen3)
-if(NOT EIGEN3_FOUND)
-  find_package(cmake_modules REQUIRED)
-  find_package(Eigen REQUIRED)
-  set(Eigen3_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS})
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
 endif()
 
+find_package(ament_cmake REQUIRED)
+find_package(simple_motion_logger REQUIRED)
+find_package(Eigen3 REQUIRED)
+
 include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  ${Eigen3_INCLUDE_DIRS}
+   include
+   ${simple_motion_logger_INCLUDE_DIRS}
+   ${EIGEN3_INCLUDE_DIRS}
 )
 
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES scurve_lib
-  CATKIN_DEPENDS
-   roscpp
-   simple_motion_logger
-)
-
+ament_export_include_directories(include)
 if (WIN32)
   set(MYPREFIX_INCLUDE_DIRS "C:/robnux/include")
   set(MYPREFIX_LINK_DIRS "C:/robnux/lib")
@@ -36,7 +24,7 @@ if (WIN32)
 endif()
 
 INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+    DESTINATION include/${PROJECT_NAME}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -44,20 +32,28 @@ add_library(${PROJECT_NAME} SHARED
             src/piecewise_function.cpp
             src/segment_planning.cpp
             )
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${catkin_LIBRARIES} Eigen3::Eigen)
-add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(${PROJECT_NAME} Eigen3::Eigen simple_motion_logger)
+ament_target_dependencies(${PROJECT_NAME} simple_motion_logger Eigen3)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL SCURVE_EXPORTS)
-INSTALL(TARGETS  ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 add_executable(testCubic test/testCubicRoots.cpp)
-TARGET_LINK_LIBRARIES(testCubic ${PROJECT_NAME} ${catkin_LIBRARIES} Eigen3::Eigen)
+#target_link_libraries(testCubic ${PROJECT_NAME} Eigen3::Eigen simple_motion_logger)
+ament_target_dependencies(testCubic simple_motion_logger Eigen3)
+target_link_libraries(testCubic ${PROJECT_NAME})
 
 add_executable(testTrajSeg test/testTrajSegment.cpp)
-TARGET_LINK_LIBRARIES(testTrajSeg ${PROJECT_NAME} ${catkin_LIBRARIES} Eigen3::Eigen)
+#target_link_libraries(testTrajSeg ${PROJECT_NAME} Eigen3::Eigen simple_motion_logger)
+ament_target_dependencies(testTrajSeg simple_motion_logger Eigen3)
+target_link_libraries(testTrajSeg ${PROJECT_NAME})
 
 add_executable(testTrajMidPoint test/testTrajSegmentMidPoints.cpp)
-TARGET_LINK_LIBRARIES(testTrajMidPoint ${PROJECT_NAME} ${catkin_LIBRARIES} Eigen3::Eigen)
+#target_link_libraries(testTrajMidPoint ${PROJECT_NAME} Eigen3::Eigen simple_motion_logger)
+ament_target_dependencies(testTrajMidPoint simple_motion_logger Eigen3)
+target_link_libraries(testTrajMidPoint ${PROJECT_NAME})
+
+ament_package()

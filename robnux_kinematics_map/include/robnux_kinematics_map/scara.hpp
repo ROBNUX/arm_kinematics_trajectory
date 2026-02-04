@@ -4,7 +4,7 @@
 #include "robnux_kdl_common/rotation.hpp"
 #include "robnux_kdl_common/vec.hpp"
 #include "robnux_kinematics_map/base_kinematics.hpp"
-#include "pluginlib/class_list_macros.h"
+#include "pluginlib/class_list_macros.hpp"
 
 namespace kinematics_lib {
 

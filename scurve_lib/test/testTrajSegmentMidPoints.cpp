@@ -1,5 +1,6 @@
 #include "scurve_lib/piecewise_function.hpp"
 #include "scurve_lib/segment_planning.hpp"
+#include "simple_motion_logger/Logger.h"
 #include <cmath>
 #include <cassert>
 #include <sstream>

@@ -5,7 +5,7 @@
 #define KINEMATICS_LIB_QUATTROK_HPP_
 #include "robnux_kdl_common/vec.hpp"
 #include "robnux_kinematics_map/base_kinematics.hpp"
-#include "pluginlib/class_list_macros.h"
+#include "pluginlib/class_list_macros.hpp"
 namespace kinematics_lib {
 class KINEMATICS_API QuattroK : public BaseKinematicMap {
  public:

@@ -1,37 +1,33 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.16)
 project(quattro_bot)
-add_compile_options(-std=c++11)
-find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    roslib
-    sensor_msgs
-    std_msgs
-    robnux_kinematics_map
-    robnux_kdl_common
-    robnux_trajectory
-    simple_motion_logger
-)
 
-catkin_package()
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 11)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(robnux_kinematics_map REQUIRED)
+find_package(robnux_kdl_common REQUIRED)
+find_package(robnux_trajectory REQUIRED)
+find_package(simple_motion_logger REQUIRED)
 
 add_executable(
   test_quattro_rviz
   test/test_quattro_rviz.cpp
 )
 
-
-TARGET_LINK_LIBRARIES(
+target_link_libraries(
    test_quattro_rviz
-   ${catkin_LIBRARIES}
+   robnux_kinematics_map
+   robnux_kdl_common
+   robnux_trajectory
+   simple_motion_logger
 )
 
 install(TARGETS test_quattro_rviz
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 add_executable(
@@ -39,27 +35,28 @@ add_executable(
   test/test_quattro4_rviz.cpp
 )
 
-
-TARGET_LINK_LIBRARIES(
+target_link_libraries(
    test_quattro4_rviz
-   ${catkin_LIBRARIES}
+   robnux_kinematics_map
+   robnux_kdl_common
+   robnux_trajectory
+   simple_motion_logger
 )
 
 install(TARGETS test_quattro4_rviz
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-
 install(DIRECTORY launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+  DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY yaml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+  DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY model
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+  DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY config
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+  DESTINATION share/${PROJECT_NAME})
+
+ament_package()
