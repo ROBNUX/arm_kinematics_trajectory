@@ -45,18 +45,9 @@ pybind11_add_module(${PROJECT_NAME} src/module_motion_command.cpp)
 
 # Use plain signature for target_link_libraries (not keyword)
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${sensor_msgs_LIBRARIES}
-    ${geometry_msgs_LIBRARIES}
-    ${std_msgs_LIBRARIES}
     ${dsl_intp_LIBRARIES}
     ${scurve_lib_LIBRARIES}
     ${robnux_trajectory_LIBRARIES}
-    ${robnux_kdl_common_LIBRARIES}
-    ${simple_motion_logger_LIBRARIES}
-    ${robnux_kinematics_map_LIBRARIES}
-    ${rclcpp_LIBRARIES}
-    ${rcl_interfaces_LIBRARIES}
-    ${pluginlib_LIBRARIES}
     Eigen3::Eigen 
     ${PYTHON3_LIBRARIES}
 )
