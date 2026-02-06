@@ -25,8 +25,8 @@ if (WIN32)
   link_directories (${MYPREFIX_LINK_DIRS})
 endif()
 
-INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION include/${PROJECT_NAME}
+INSTALL(DIRECTORY include/
+    DESTINATION include
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -39,11 +39,20 @@ add_library(${PROJECT_NAME} SHARED
 ament_target_dependencies(${PROJECT_NAME} simple_motion_logger Eigen3 robnux_kdl_common pluginlib)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL KINEMATICS_EXPORTS)
 install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
+ament_export_dependencies(
+  Eigen3
+  simple_motion_logger
+  robnux_kdl_common
+  pluginlib
+)
+
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 install(FILES kinematics_plugin.xml
  DESTINATION share/${PROJECT_NAME}
 )

@@ -1,27 +1,23 @@
 #include <math.h>
-#include <ros/ros.h>
-#include <ros/subscribe_options.h>
-#include <boost/thread.hpp>
-#include <boost/algorithm/string.hpp>
-#include <sensor_msgs/JointState.h>
-#include <std_msgs/Float64.h>
-#include <sensor_msgs/JointState.h>
+#include "rclcpp/rclcpp.hpp"
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <std_msgs/msg/float64.hpp>
 #include <robnux_kinematics_map/quattro_4.hpp>
 #include <robnux_kdl_common/pose.hpp>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <robnux_trajectory/line_trajectory.hpp>
 #include <robnux_trajectory/shortest_quat_trajectory.hpp>
 #include <robnux_trajectory/trajectory_segment.hpp>
 #include <robnux_trajectory/s_curve.hpp>
 #include <signal.h>
 
-#include <boost/bind.hpp>
-#include <boost/thread/mutex.hpp>
+#include <thread>
+#include <mutex>
 
 using namespace kinematics_lib;
 static const double RAD2DEG=57.2957805;
 
-class TestQuattro4Kinematics {
+class TestQuattro4Kinematics : public rclcpp::Node {
  public:
    //! constructor 
    TestQuattro4Kinematics();
@@ -31,18 +27,15 @@ class TestQuattro4Kinematics {
    void SetJointCommands(const Eigen::VectorXd &jtCmd_a,
                          const Eigen::VectorXd &jtCmd_p);
    //! processFeedback from robot
-   //void processFeedback(const sensor_msgs::JointState& servo_des_states);
+   //void processFeedback(const sensor_msgs::msg::JointState& servo_des_states);
    //! receive goal from users
-   void receiveGoal(const geometry_msgs::PoseStamped::ConstPtr& goal);
+   void receiveGoal(const geometry_msgs::msg::PoseStamped::SharedPtr goal);
    //! control loop
    void motionControlLoop(const double frequency);
    
  private:
-     
-    // ros node handle
-    ros::NodeHandle nh_;
     // control thread
-    boost::thread* control_thread_;
+    std::thread* control_thread_;
     // quattro kinematic model object
     kinematics_lib::Quattro_4  quattro_4_;
     // desired active joint angles
@@ -53,11 +46,11 @@ class TestQuattro4Kinematics {
     // std::vector<std::string> topicNames_;
     
     //! joint command publishers
-    ros::Publisher pub_joint_cmd_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_cmd_;
     //! subscriber to user setting goals
-    ros::Subscriber goalSubscriber_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goalSubscriber_;
     //! joint feedback subscriber
-    // ros::Subscriber jointStates_;
+    // rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr jointStates_;
     
     // pose of robot
     kinematics_lib::Pose  pose_c_, pose_d_, last_pose_d_;
@@ -79,8 +72,9 @@ class TestQuattro4Kinematics {
 };
 
 
-TestQuattro4Kinematics::TestQuattro4Kinematics(): nh_("~"),
-    got_feedback_(false), new_goal_(false), motion_complete_(false) {
+TestQuattro4Kinematics::TestQuattro4Kinematics()
+    : rclcpp::Node("test_quattro4_rviz"),
+      got_feedback_(false), new_goal_(false), motion_complete_(false) {
     noJoints_ = quattro_4_.GetActDoF();
     jnts_a_.resize(noJoints_, 0); // initializes to 0
     jnts_p_.resize(20); // 20 passive joints 
@@ -102,62 +96,42 @@ TestQuattro4Kinematics::TestQuattro4Kinematics(): nh_("~"),
     //branchFlags_.resize(1,1);
     quattro_4_.SetGeometry(parameters_);
     
-    // subscribe to joint feedback
-    pub_joint_cmd_ = nh_.advertise<sensor_msgs::JointState>("/joint_states", 2);
-    // subscribe to external user command
-    goalSubscriber_= nh_.subscribe<geometry_msgs::PoseStamped>("goal", 1,
-          &TestQuattro4Kinematics::receiveGoal, this);
-    
-    int ret = quattro_4_.JntToCart(jnts_a_, &pose_c_);
-    if (ret < 0) {
-       ROS_ERROR("Forward kinematics failure, error code is, %d ", ret);
-    } else {
-         ROS_INFO("jnt feedback (%lf,%lf,%lf,%lf)", jnts_a_[0],
-                         jnts_a_[1], jnts_a_[2], jnts_a_[3]);
-         ROS_INFO("got feedback, and compute current pose as trans=%s, quat=%s",
-                pose_c_.getTranslation().ToString().c_str(),
-                pose_c_.getQuaternion().ToString(false).c_str());
-         // if (!got_feedback_) {
-           pose_d_ = pose_c_;
-           last_pose_d_ = pose_d_;
-           got_feedback_ = true;
-         //}
-    }
-    /*
-    ros::Time stamp = ros::Time::now();
-    ros::Time waitLimit = stamp + ros::Duration(20); // 5 seconds
-    
-    while ((!got_feedback_) && (ros::Time::now() <= waitLimit)) {
-       // ros::spinOnce(); 
-       usleep(1000); 
-    }
-    if (got_feedback_) {
-       ROS_INFO("got feedback");
-    } else {
-       ROS_INFO("something is wrong, no feedback"); 
-    }
-    boost::recursive_mutex::scoped_lock l(feedback_mutex_);
-    pose_d_ = pose_c_;
-    last_pose_d_ = pose_d_;
-    */
-    // set up control loop, 10 hz
-    control_thread_ = new boost::thread(
-            boost::bind(&TestQuattro4Kinematics::motionControlLoop, this,
-            100));
-    ROS_INFO("test quattro object initilized");
+     // publish and subscribe
+     pub_joint_cmd_ = create_publisher<sensor_msgs::msg::JointState>("/joint_states", 2);
+     goalSubscriber_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+        "goal", 1,
+        std::bind(&TestQuattro4Kinematics::receiveGoal, this, std::placeholders::_1));
+
+     int ret = quattro_4_.JntToCart(jnts_a_, &pose_c_);
+     if (ret < 0) {
+       RCLCPP_ERROR(get_logger(), "Forward kinematics failure, error code is, %d", ret);
+     } else {
+        RCLCPP_INFO(get_logger(), "jnt feedback (%lf,%lf,%lf,%lf)", jnts_a_[0],
+                   jnts_a_[1], jnts_a_[2], jnts_a_[3]);
+        RCLCPP_INFO(get_logger(), "got feedback, and compute current pose as trans=%s, quat=%s",
+             pose_c_.getTranslation().ToString().c_str(),
+             pose_c_.getQuaternion().ToString(false).c_str());
+        pose_d_ = pose_c_;
+        last_pose_d_ = pose_d_;
+        got_feedback_ = true;
+     }
+
+     // set up control loop, 100 hz
+     control_thread_ = new std::thread(
+          &TestQuattro4Kinematics::motionControlLoop, this, 100);
+     RCLCPP_INFO(get_logger(), "test quattro object initilized");
 }
 
 TestQuattro4Kinematics::~TestQuattro4Kinematics() {
-    if (control_thread_) {
-        control_thread_->join();
-        delete control_thread_;
-        control_thread_ = NULL;
-    }
+  if (control_thread_) {
+    control_thread_->join();
+    delete control_thread_;
+    control_thread_ = nullptr;
+  }
 }
 
 void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
-    ros::NodeHandle nh;
-    ros::Rate r = ros::Rate(frequency);
+  rclcpp::Rate r(frequency);
     
      // we only using line trajectory in this test
     std::shared_ptr<kinematics_lib::LineTrajectory> traj_t = NULL;
@@ -180,8 +154,9 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
     Twist tw, acctw;
     double traj_time = 0;
     
-    while (nh.ok()) { 
-      //boost::recursive_mutex::scoped_lock l(goal_mutex_);
+    while (rclcpp::ok()) { 
+      //boorclcpp::ok()) { 
+      //std::lock_guard<std::mutex> l(goal_mutex_);
       if (new_goal_) {
          motion_complete_ = false;
           // if there is a new goal come, but traj not finishes, then we delete it anyway
@@ -189,7 +164,7 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
              seg.reset();
              seg=nullptr;
          }
-         ROS_INFO("motion loop got new goal");
+         RCLCPP_INFO(get_logger(), "motion loop got new goal");
          prof_t = std::make_shared<kinematics_lib::SCurveProfile>();
          prof_t->setConstraints(0.1, 0.4, 0.8);
          traj_t = std::make_shared<kinematics_lib::LineTrajectory>();
@@ -219,33 +194,33 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
              seg->Trajectory(traj_time,  &tmp, &tw, &acctw);
              int ret=quattro_4_.CartToJnt(tmp, &jnts_a_);
              if (ret ==0 ) {
-                 ROS_INFO("planned pose trans=%s, quat=%s",
+                 RCLCPP_INFO(get_logger(), "planned pose trans=%s, quat=%s",
                  tmp.getTranslation().ToString().c_str(),
                  tmp.getQuaternion().ToString(false).c_str());
                 
                  int ret2=quattro_4_.JntToCart(jnts_a_, &tmp);
                  if (ret2 == 0) {
-                   ROS_INFO("FK pose trans=%s, quat=%s",
+                   RCLCPP_INFO(get_logger(), "FK pose trans=%s, quat=%s",
                    tmp.getTranslation().ToString().c_str(),
                    tmp.getQuaternion().ToString(false).c_str());
                  } else {
-                     ROS_INFO("FK pose verification fails");
+                     RCLCPP_INFO(get_logger(), "FK pose verification fails");
                  }
                 
                  int ret1=quattro_4_.CalcPassive(jnts_a_, tmp,
                           &jnts_p_);
                  if (ret1==0) {
-                   ROS_INFO("jnt cmd (%lf,%lf,%lf,%lf)", jnts_a_[0],
+                   RCLCPP_INFO(get_logger(), "jnt cmd (%lf,%lf,%lf,%lf)", jnts_a_[0],
                          jnts_a_[1], jnts_a_[2], jnts_a_[3]);
                    
                    SetJointCommands(jnts_a_, jnts_p_);
                  } else {
-                     ROS_INFO("Quattro_4 CalcPassive fails, error code =%d",
+                     RCLCPP_INFO(get_logger(), "Quattro_4 CalcPassive fails, error code =%d",
                               ret1);
                  }
                  
              } else {
-                 ROS_INFO("quattro_4_.CartToJnt fails, errorcode =%d", ret);
+                 RCLCPP_INFO(get_logger(), "quattro_4_.CartToJnt fails, errorcode =%d", ret);
              }
              traj_time += 1/frequency;
           } else {
@@ -253,7 +228,7 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
               seg = nullptr;
           }
       }
-      ros::spinOnce();
+      rclcpp::spin_some(shared_from_this());
       r.sleep();
   }
 }
@@ -262,8 +237,8 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
 void TestQuattro4Kinematics::SetJointCommands(
          const Eigen::VectorXd &jtCmd_a,
          const Eigen::VectorXd &jtCmd_p) {
-    sensor_msgs::JointState msgs;
-    msgs.header.stamp = ros::Time::now();
+    sensor_msgs::msg::JointState msgs;
+    msgs.header.stamp = get_clock()->now();
     msgs.name.resize(24);
     msgs.name[0]="JOINT_1_ACT";
     msgs.name[1]="JOINT_2_ACT";
@@ -299,7 +274,7 @@ void TestQuattro4Kinematics::SetJointCommands(
         // msgs.name[4+i] = "passive joint " + std::to_string(i);
         msgs.position[4+i] = jtCmd_p(i);
     }
-    pub_joint_cmd_.publish(msgs);
+    pub_joint_cmd_->publish(msgs);
 }
 
 /*
@@ -343,19 +318,19 @@ void TestQuattroKinematics::processFeedback(
  */ 
 
 void TestQuattro4Kinematics::receiveGoal(
-    const geometry_msgs::PoseStamped::ConstPtr& goal) {
-    //boost::recursive_mutex::scoped_lock l(goal_mutex_);
+    const geometry_msgs::msg::PoseStamped::SharedPtr goal) {
+    //std::lock_guard<std::mutex> l(goal_mutex_);
     // if (motion_complete_ && !new_goal_) {
     if (!new_goal_) {
-        geometry_msgs::Pose p_goal = goal->pose;
+        geometry_msgs::msg::Pose p_goal = goal->pose;
         Vec trans(p_goal.position.x, p_goal.position.y, p_goal.position.z);
         kinematics_lib::Quaternion q(p_goal.orientation.w, p_goal.orientation.x,
                      p_goal.orientation.y, p_goal.orientation.z);
         pose_d_.setTranslation(trans);
         pose_d_.setQuaternion(q);
         new_goal_ = true;
-        ROS_INFO("receive goal, position %s, orientation %s " 
-                , trans.ToString().c_str(),
+        RCLCPP_INFO(get_logger(), "receive goal, position %s, orientation %s", 
+                trans.ToString().c_str(),
                 q.ToString(false).c_str());
         motion_complete_ = false;
    }
@@ -363,25 +338,24 @@ void TestQuattro4Kinematics::receiveGoal(
 
 
 
-boost::shared_ptr<TestQuattro4Kinematics>  test_quattro4_ptr;
+std::shared_ptr<TestQuattro4Kinematics>  test_quattro4_ptr;
 
 void sigintHandler(int sig) {
-    ros::shutdown();
+    rclcpp::shutdown();
 }
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "test_quattro4_rviz");
+  rclcpp::init(argc, argv);
 
-  ros::NodeHandle nhl;
-          
   // override default sigint handler
   signal(SIGINT, sigintHandler);
   
-  test_quattro4_ptr.reset(new TestQuattro4Kinematics());
+  test_quattro4_ptr = std::make_shared<TestQuattro4Kinematics>();
   
-  ros::spin();
+  rclcpp::spin(test_quattro4_ptr);
   
   test_quattro4_ptr.reset();
+  rclcpp::shutdown();
 
   return 0;
 }

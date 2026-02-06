@@ -7,22 +7,19 @@
 #include "robnux_trajectory/trajectory_buffer.hpp"
 #include "robnux_trajectory/s_curve.hpp"
 #include "robnux_kinematics_map/base_kinematics.hpp"
-#include "std_msgs/Float64.h"
+#include "std_msgs/msg/float64.hpp"
 #include "robnux_kdl_common/vec.hpp"
 #include "robnux_kdl_common/pose.hpp"
 #include "robnux_kdl_common/common_constants.hpp"
 #include <eigen3/Eigen/Core>
 #include "dsl_intp/intp_exportdecl.h"
-#include "ros/ros.h"
-#include "geometry_msgs/PoseStamped.h"
-#include "ros/subscribe_options.h"
-#include "sensor_msgs/JointState.h"
-#include "pluginlib/class_loader.h"
+#include "rclcpp/rclcpp.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "pluginlib/class_loader.hpp"
 #include <chrono>
 #include <thread>
 #include <csignal>
-#define HAVE_STRUCT_TIMESPEC
-#include <pthread.h>
 
 void catch_signals() {
   auto handler = [](int code) {
@@ -148,7 +145,7 @@ namespace kinematics_lib {
    // into trajectory buffer
    std::shared_ptr<TrajectoryBuffer> tjBuff_;
    // there are two threads here, (1) interpreter thread (2) executing trajectory thread
-   pthread_t  intp_, execTraj_;
+   std::thread intp_thread_, traj_thread_;
    // time scale for gradually slowing down during pause/stop, as well as time scale for gradually speed up
    // when resume is hit 
    double time_scale_;
@@ -180,10 +177,6 @@ namespace kinematics_lib {
    boost::shared_ptr<BaseKinematicMap>  armMap_;
    pluginlib::ClassLoader<BaseKinematicMap> armMap_loader_;
 
-   // thread for parsing robot commands
-   static void *RobCmdInpThreadEntryFunc(void *myObject);
-   // thread for executing robot commands
-   static void *ExecTrajThreadEntryFunc(void *myObject);
    // whether initialized correctly
    bool initialized_;
    // trajectory task state machine
@@ -220,9 +213,12 @@ namespace kinematics_lib {
       // this is the frame used for traj compensation
    Frame current_base_, current_tool_;
    
+   // ROS2 node for publishers
+   std::shared_ptr<rclcpp::Node> node_;
    // joint and cartesian publisher
-   ros::Publisher pub_joint_cmd_, pub_cart_cmd_;
-   std::vector<ros::Publisher> pub_joint_control_;
+   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_cmd_;
+   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_cart_cmd_;
+   std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> pub_joint_control_;
  };
 }
 #endif  /* ROBINTP_INTP_HPP */

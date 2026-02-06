@@ -10,7 +10,8 @@ find_package(simple_motion_logger REQUIRED)
 
 include_directories(
   include
-  ${simple_motion_logger_INCLUDE_DIRS} )
+  ${simple_motion_logger_INCLUDE_DIRS} 
+)
 
 ament_export_include_directories(include)
 
@@ -21,8 +22,8 @@ if (WIN32)
   link_directories (${MYPREFIX_LINK_DIRS})
 endif()
 
-INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION include/${PROJECT_NAME}
+INSTALL(DIRECTORY include/
+    DESTINATION include
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -30,12 +31,21 @@ add_library(${PROJECT_NAME} SHARED
             src/rotation.cpp
             src/twistWrench.cpp
             src/vec.cpp)
+
+ament_target_dependencies(${PROJECT_NAME} simple_motion_logger)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL COMMON_EXPORTS)
 install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+ament_export_dependencies(
+  simple_motion_logger
+)
+
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
 ament_package()
 

@@ -15,13 +15,32 @@
     <build_depend>std_msgs</build_depend>
     <build_depend>dsl_intp</build_depend>
     <build_depend>scurve_lib</build_depend>
+    <build_depend>Eigen3</build_depend>
+    <build_depend>robnux_trajectory</build_depend>
+    <build_depend>robnux_kdl_common</build_depend>
+    <build_depend>simple_motion_logger</build_depend>
+    <build_depend>robnux_kinematics_map</build_depend>
+    <build_depend>rclcpp</build_depend>
+    <build_depend>rcl_interfaces</build_depend>
     
     <exec_depend>sensor_msgs</exec_depend>
     <exec_depend>geometry_msgs</exec_depend>
     <exec_depend>std_msgs</exec_depend>
     <exec_depend>dsl_intp</exec_depend>
     <exec_depend>scurve_lib</exec_depend>
-    
+    <exec_depend>Eigen3</exec_depend>
+    <exec_depend>robnux_trajectory</exec_depend>
+    <exec_depend>robnux_kdl_common</exec_depend>
+    <exec_depend>simple_motion_logger</exec_depend>
+    <exec_depend>robnux_kinematics_map</exec_depend>
+    <exec_depend>rclcpp</exec_depend>
+    <exec_depend>rcl_interfaces</exec_depend>
+
+    <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+    <build_depend>pybind11</build_depend>
+    <exec_depend>rclpy</exec_depend>
+
     <export>
     </export>
 </package>

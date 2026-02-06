@@ -20,8 +20,8 @@ if (WIN32)
   link_directories (${MYPREFIX_LINK_DIRS})
 endif()
 
-INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION include/${PROJECT_NAME}
+INSTALL(DIRECTORY include/
+    DESTINATION include
 )
 
 add_library(${PROJECT_NAME} SHARED

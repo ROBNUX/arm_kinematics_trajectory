@@ -3,8 +3,7 @@
 
 using namespace ROBNUXLogging;
 
-namespace kinematics_lib
-{
+namespace kinematics_lib{
   CreateRobot::CreateRobot(const std::string&robName,
                            const EigenDRef<Eigen::VectorXd>& kine_para,
                            const EigenDRef<Eigen::VectorXd>& defaultBaseOff,
@@ -21,13 +20,15 @@ namespace kinematics_lib
                                 feedback_done_(false),
                                 bypassCMDQueue_(false),
                                 shutdown_(false) {
-    int argc = 0;
-    ros::init(argc, NULL, robName);
     std::ostringstream strs;
+    // Initialize ROS2 node
+    rclcpp::NodeOptions options;
+    node_ = std::make_shared<rclcpp::Node>(robName, options);
+    
     current_spd_percent_.vel_perc_ = 10;
     current_spd_percent_.acc_perc_ = 10;
     current_spd_percent_.jerk_perc_ = 10;
-    armMap_ = armMap_loader_.createInstance(robName);
+    armMap_.reset(armMap_loader_.createClassInstance(robName));
     if (!armMap_) {
       return;
     }
@@ -64,87 +65,70 @@ namespace kinematics_lib
       return; // initialize failed
     }
 
-      // initialize two publishers
-    ros::NodeHandle nh("~");
-    pub_joint_cmd_ = nh.advertise<sensor_msgs::JointState>("/joint_states", 2);
-    pub_cart_cmd_ = nh.advertise<geometry_msgs::PoseStamped>("cart_pose", 2);
+    // initialize ROS2 publishers
+    pub_joint_cmd_ = node_->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 2);
+    pub_cart_cmd_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("cart_pose", 2);
     pub_joint_control_.resize(DoF_);
     // initialize jnt cmd topic names and publisher
     for (int i=0; i< DoF_; i++) {
         std::string topic = "joint" +std::to_string(i+1) + 
                         "_position_controller/command";
-        pub_joint_control_[i] = nh.advertise<std_msgs::Float64>(topic, 10);
+        pub_joint_control_[i] = node_->create_publisher<std_msgs::msg::Float64>(topic, 10);
     }
 
-      // initialize two threads, one for adding commands to cmd buffer, and then converting
-      // cmd buffer to traj buff
-      if (pthread_create(&intp_, NULL /*&attr_intp */,
-                         RobCmdInpThreadEntryFunc, this) == 0 &&
-          pthread_create(&execTraj_, NULL /*&attr_exec_traj*/,
-                         ExecTrajThreadEntryFunc, this) == 0) {
-        initialized_ = true;
-      } else {
-        strs.str("");
-        strs << "Create thread fails in " << __FUNCTION__ << " , at line "
-             << __LINE__
-             << std::endl;
-        LOG_ERROR(strs);
-      }
-    
+    // initialize two threads, one for adding commands to cmd buffer, and then converting
+    // cmd buffer to traj buff
+    try {
+      intp_thread_ = std::thread(&CreateRobot::RobCmdInpThreadEntry, this);
+      traj_thread_ = std::thread(&CreateRobot::ExecTrajThreadEntry, this);
+      initialized_ = true;
+    } catch (const std::exception& e) {
+      strs.str("");
+      strs << "Create thread fails in " << __FUNCTION__ << " , at line "
+           << __LINE__ << ": " << e.what()
+           << std::endl;
+      LOG_ERROR(strs);
+    }
   }
 
   CreateRobot::~CreateRobot() {
     if (initialized_) {
       shutdown_ = true;
-      pthread_join(intp_, NULL);
-      pthread_join(execTraj_, NULL);
+      if (intp_thread_.joinable()) {
+        intp_thread_.join();
+      }
+      if (traj_thread_.joinable()) {
+        traj_thread_.join();
+      }
       armMap_.reset();
       armMap_ = nullptr;
       tjBuff_.reset();
       tjBuff_ = nullptr;
+      node_.reset();
+      node_ = nullptr;
     }
-    // ros::shutdown();
-    // all other std::share_ptr will automaticall cleaned out after here
+    // all other std::share_ptr will automatically be cleaned out after here
   }
   
   void CreateRobot::ShutDown() {
     if (initialized_) {
       shutdown_ = true;
-      pthread_join(intp_, NULL);
-      pthread_join(execTraj_, NULL);
+      if (intp_thread_.joinable()) {
+        intp_thread_.join();
+      }
+      if (traj_thread_.joinable()) {
+        traj_thread_.join();
+      }
       tjBuff_.reset();
       tjBuff_ = nullptr;
       armMap_.reset();
       armMap_ = nullptr;
+      node_.reset();
+      node_ = nullptr;
       initialized_ = false;
     }
   }
 
-  void *CreateRobot::RobCmdInpThreadEntryFunc(void *myObject) {
-    CreateRobot *obj = (CreateRobot *)(myObject); //static_cast<CreateRobot*>(myObject);
-    if (obj) {
-      obj->RobCmdInpThreadEntry();
-    } else {
-      std::ostringstream strs;
-      strs << "input my object is NULL in " << __FUNCTION__ << " at line "
-      << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-    }
-    return NULL;
-  }
-
-  void *CreateRobot::ExecTrajThreadEntryFunc(void *myObject) {
-    CreateRobot *obj = (CreateRobot *)(myObject); //static_cast<CreateRobot*>(myObject);
-    if (obj) {
-      obj->ExecTrajThreadEntry();
-    } else {
-      std::ostringstream strs;
-      strs << "input my object is NULL in " << __FUNCTION__ << " at line " 
-      << __LINE__ << std::endl;
-      LOG_INFO(strs);
-    }
-    return NULL;
-  }
 
   void CreateRobot::RobCmdInpThreadEntry() {
     system_clock::time_point current_time(system_clock::now());
@@ -252,14 +236,13 @@ namespace kinematics_lib
     
     //rps.getDefaultPose(&d_ps);
     armMap_->JntToCart(jnt, &d_ps); // in simulation, 
-    //ROS_INFO("active_joint size=%lu", jnt.size());
       // we always choose canonical model
       // publish Joint angles to rviz or to robot controller
     publishJnt(jnt, d_ps);
-     std_msgs::Float64 msgs;
+    auto msgs = std::make_shared<std_msgs::msg::Float64>();
     for (unsigned int i = 0; i < DoF_; i++) {
-        msgs.data = jnt(i) * RAD2DEG;
-        pub_joint_control_[i].publish(msgs);
+        msgs->data = jnt(i) * RAD2DEG;
+        pub_joint_control_[i]->publish(*msgs);
     }
   }
 
@@ -771,35 +754,32 @@ namespace kinematics_lib
   }
 
   void CreateRobot::publishJnt(const Eigen::VectorXd &jnt_a, const Pose &pose) {
-    geometry_msgs::PoseStamped poseMsg;
-    poseMsg.header.stamp = ros::Time::now();
-    poseMsg.header.frame_id = "rob_base";
+    auto poseMsg = std::make_shared<geometry_msgs::msg::PoseStamped>();
+    poseMsg->header.stamp = node_->get_clock()->now();
+    poseMsg->header.frame_id = "rob_base";
     Vec p = pose.getTranslation();
     Quaternion q = pose.getQuaternion();
-    poseMsg.pose.position.x = p.x();
-    poseMsg.pose.position.y = p.y();
-    poseMsg.pose.position.z = p.z();
-    poseMsg.pose.orientation.w = q.w();
-    poseMsg.pose.orientation.x = q.x();
-    poseMsg.pose.orientation.y = q.y();
-    poseMsg.pose.orientation.z = q.z();
-    pub_cart_cmd_.publish(poseMsg);
+    poseMsg->pose.position.x = p.x();
+    poseMsg->pose.position.y = p.y();
+    poseMsg->pose.position.z = p.z();
+    poseMsg->pose.orientation.w = q.w();
+    poseMsg->pose.orientation.x = q.x();
+    poseMsg->pose.orientation.y = q.y();
+    poseMsg->pose.orientation.z = q.z();
+    pub_cart_cmd_->publish(*poseMsg);
 
-    sensor_msgs::JointState msgs;
-    msgs.header.stamp = ros::Time::now();
+    auto msgs = std::make_shared<sensor_msgs::msg::JointState>();
+    msgs->header.stamp = node_->get_clock()->now();
 
-    msgs.name = *armMap_->GetJntNames();
+    msgs->name = *armMap_->GetJntNames();
     // tmp.insert(tmp.end(), jnt_a.begin(), jnt_a.end());
     Eigen::VectorXd jnt_p;
     if (!armMap_->CalcPassive(jnt_a, pose, &jnt_p)) {
       Eigen::VectorXd tmp(jnt_a.size() + jnt_p.size());
       tmp.segment(0, jnt_a.size()) = jnt_a;
       tmp.segment(jnt_a.size(), jnt_p.size()) = jnt_p; 
-      //tmp.insert(tmp.end(), jnt_p.begin(), jnt_p.end());
-      //msgs.position = tmp;
-      EigenVec2StdVec(tmp, &msgs.position);
-      // ROS_INFO("name size= %lu, position size= %lu", msgs.name.size(), tmp.size());
-      pub_joint_cmd_.publish(msgs);
+      EigenVec2StdVec(tmp, &msgs->position);
+      pub_joint_cmd_->publish(*msgs);
     }
   }
 

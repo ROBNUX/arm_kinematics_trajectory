@@ -11,8 +11,14 @@ find_package(robnux_kdl_common REQUIRED)
 find_package(robnux_kinematics_map REQUIRED)
 find_package(scurve_lib REQUIRED)
 
-include_directories(include)
+include_directories(include
+${simple_motion_logger_INCLUDE_DIRS}
+${robnux_kdl_common_INCLUDE_DIRS}
+${robnux_kinematics_map_INCLUDE_DIRS}
+${scurve_lib_INCLUDE_DIRS}
+)
 
+ament_export_include_directories(include)
 if (WIN32)
   set(MYPREFIX_INCLUDE_DIRS "C:/robnux/include")
   set(MYPREFIX_LINK_DIRS "C:/robnux/lib")
@@ -20,8 +26,8 @@ if (WIN32)
   link_directories (${MYPREFIX_LINK_DIRS})
 endif()
 
-INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION include/${PROJECT_NAME}
+INSTALL(DIRECTORY include/
+    DESTINATION include
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -37,11 +43,20 @@ add_library(${PROJECT_NAME} SHARED
             src/trajectory_buffer.cpp
             src/base_profile.cpp
            )
+ament_target_dependencies(${PROJECT_NAME} simple_motion_logger robnux_kdl_common robnux_kinematics_map scurve_lib)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL TRAJECTORY_EXPORTS)
 install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+ament_export_dependencies(
+  simple_motion_logger
+  robnux_kdl_common
+  robnux_kinematics_map
+  scurve_lib
+)
 
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_package()

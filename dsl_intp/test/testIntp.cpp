@@ -1,19 +1,11 @@
 #include <math.h>
-//#include <ros/ros.h>
 #include <signal.h>
 #include "dsl_intp/intp.hpp"
 
 using namespace kinematics_lib;
 static const double RAD2DEG=57.2957805;
-//void sigintHandler(int sig) {
-  //  ros::shutdown();
-//}
 
 int main(int argc, char** argv) {
-  // ros::init(argc, argv, "test_quattro_rviz");
-          
-  // override default sigint handler
-  //signal(SIGINT, sigintHandler);
   int x;
   std::cout<< " input any integer"<<std::endl;
   std::cin >> x;
@@ -68,7 +60,6 @@ int main(int argc, char** argv) {
     std::cout << "robot add Linear command failure" << std::endl;
     return 0;
   }
-  //ros::spin();
 
   return 0;
 }

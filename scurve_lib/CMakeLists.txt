@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(scurve_lib)
 
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -23,8 +23,9 @@ if (WIN32)
   link_directories (${MYPREFIX_LINK_DIRS})
 endif()
 
-INSTALL(DIRECTORY include/${PROJECT_NAME}/
-    DESTINATION include/${PROJECT_NAME}
+## Install headers to the workspace include/ so ament consumers can find them
+install(DIRECTORY include/
+    DESTINATION include
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -36,10 +37,18 @@ add_library(${PROJECT_NAME} SHARED
 ament_target_dependencies(${PROJECT_NAME} simple_motion_logger Eigen3)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL SCURVE_EXPORTS)
 install(TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+ament_export_dependencies(
+  Eigen3
+  simple_motion_logger
+)
+
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
 add_executable(testCubic test/testCubicRoots.cpp)
 #target_link_libraries(testCubic ${PROJECT_NAME} Eigen3::Eigen simple_motion_logger)
