@@ -53,11 +53,7 @@ void Scara::SetGeometry(const Eigen::VectorXd &kine_para) {
   }
 }
 
-int Scara::JntToCart(const Eigen::VectorXd &q, Pose *p) {
-  if (!p) {
-    std::cout << "input pose pointer is null in " << __FUNCTION__
-              << ", at line " << __LINE__ << std::endl;
-  }
+int Scara::JntToCart(const Eigen::VectorXd &q, Pose& p) {
   d_(2) = q(2);
   theta_(0) = q(0);
   theta_(1) = q(1);
@@ -90,29 +86,24 @@ int Scara::JntToCart(const Eigen::VectorXd &q, Pose *p) {
       }
     }
   }
-  p->setFrame(tmp);
-  p->setBranchFlags(branchFlags);
-  p->setJointTurns(jointTurns);
+  p.setFrame(tmp);
+  p.setBranchFlags(branchFlags);
+  p.setJointTurns(jointTurns);
   return 0;
 }
 
 int Scara::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                     Pose *p, Twist *v) {
+                     Pose& p, Twist& v) {
   return 0;
 }
 
 int Scara::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                     const Eigen::VectorXd &qddot, Pose *p, Twist *v,
-                     Twist *a) {
+                     const Eigen::VectorXd &qddot, Pose& p, Twist& v,
+                     Twist& a) {
   return 0;
 }
 
-int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd *q) {
-  if (!q) {
-    std::cout << "input joint angle pointer is null in " << __FUNCTION__
-              << ", at line " << __LINE__ << std::endl;
-    return -15;
-  }
+int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd& q) {
   if (!initialized_) {
     std::cout << "Scara geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
@@ -129,11 +120,11 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd *q) {
               << " in " << __FUNCTION__ << " at line " << __LINE__ << std::endl;
     return -49;
   }
-  if (q->size() != DoF_) {
-    q->resize(DoF_);
+  if (q.size() != DoF_) {
+    q.resize(DoF_);
   }
   // computer prismatic joint value
-  (*q)(2) = p.z() - (d_(0) + d_(1) + d_(2) + d_(3));
+  q(2) = p.z() - (d_(0) + d_(1) + d_(2) + d_(3));
   double xy_length = sqrt(p.x() * p.x() + p.y() * p.y());
   if (xy_length > a_(1) + a_(2) ||
       xy_length < fabs(a_(1) - a_(2))) {  // then out of reach
@@ -151,26 +142,26 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd *q) {
            (2 * a_(1) * xy_length));
 
   if (branch[0]) {  // if the configuration is righty
-    (*q)(0) = angle_xy - offset_angle;
+    q(0) = angle_xy - offset_angle;
   } else {
-    (*q)(0) = angle_xy + offset_angle;
+    q(0) = angle_xy + offset_angle;
   }
-  (*q)(1) = atan2(p.y() - a_(1) * sin((*q)(0)), p.x() - a_(1) * cos((*q)(0))) -
-            (*q)(0);
+  q(1) = atan2(p.y() - a_(1) * sin(q(0)), p.x() - a_(1) * cos(q(0))) -
+            q(0);
 
   // we have to keep all angles calculated from invkin() within -M_Pi and M_Pi
-  if ((*q)(0) >= M_PI) {
-    (*q)(0) -= 2 * M_PI;
+  if (q(0) >= M_PI) {
+    q(0) -= 2 * M_PI;
   }
-  if ((*q)(0) <= -M_PI) {
-    (*q)(0) += 2 * M_PI;
+  if (q(0) <= -M_PI) {
+    q(0) += 2 * M_PI;
   }
 
-  if ((*q)(1) >= M_PI) {
-    (*q)(1) -= 2 * M_PI;
+  if (q(1) >= M_PI) {
+    q(1) -= 2 * M_PI;
   }
-  if ((*q)(1) <= -M_PI) {
-    (*q)(1) += 2 * M_PI;
+  if (q(1) <= -M_PI) {
+    q(1) += 2 * M_PI;
   }
 
   std::vector<int> jointTurns;
@@ -181,28 +172,28 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd *q) {
               << " in " << __FUNCTION__ << " at line " << __LINE__ << std::endl;
     return -51;
   }
-  (*q)(3) = yaw - (*q)(0) - (*q)(1);
-  // first convert q->at(3) into [-pi, pi]
-  double jointTurns3 = std::floor((*q)(3) / (2 * M_PI));
-  double tmp_q = (*q)(3) - jointTurns3 * 2 * M_PI;
+  q(3) = yaw - q(0) - q(1);
+  // first convert q(3) into [-pi, pi]
+  double jointTurns3 = std::floor(q(3) / (2 * M_PI));
+  double tmp_q = q(3) - jointTurns3 * 2 * M_PI;
   // then make sure [-PI, PI]
   // to have 0 turn here
   if (tmp_q > M_PI) {
     jointTurns3 += 1;
   }
-  // q->at(3) -= jointTurns3 * 2 * PI;
-  (*q)(3) += (jointTurns[3] - jointTurns3) * 2 * M_PI;
+  // q(3) -= jointTurns3 * 2 * PI;
+  q(3) += (jointTurns[3] - jointTurns3) * 2 * M_PI;
   return 0;
 }
 
-int Scara::CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd *q,
-                     Eigen::VectorXd *qdot) {
+int Scara::CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd& q,
+                     Eigen::VectorXd& qdot) {
   return 0;
 }
 
 int Scara::CartToJnt(const Pose &p, const Twist &v, const Twist &a,
-                     Eigen::VectorXd *q, Eigen::VectorXd *qdot,
-                     Eigen::VectorXd *qddot) {
+                     Eigen::VectorXd& q, Eigen::VectorXd& qdot,
+                     Eigen::VectorXd& qddot) {
   return 0;
 }
 

@@ -27,7 +27,7 @@ class KINEMATICS_API Quattro : public BaseKinematicMap {
    *
    */
 
-  int JntToCart(const Eigen::VectorXd &q, Pose *p) override;
+  int JntToCart(const Eigen::VectorXd &q, Pose& p) override;
 
   /**
    * Calculate forward position and velocity kinematics, from
@@ -41,8 +41,8 @@ class KINEMATICS_API Quattro : public BaseKinematicMap {
    *
    *
    */
-  int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot, Pose *p,
-                Twist *v) override;
+  int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot, Pose& p,
+                Twist& v) override;
 
   /*
    * Calculate forward position, velocity and accelaration
@@ -57,20 +57,20 @@ class KINEMATICS_API Quattro : public BaseKinematicMap {
    * @return if < 0 something went wrong
    */
   int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                const Eigen::VectorXd &qddot, Pose *p, Twist *v,
-                Twist *a) override;
+                const Eigen::VectorXd &qddot, Pose& p, Twist& v,
+                Twist& a) override;
 
-  int CartToJnt(const Pose &p, Eigen::VectorXd *q) override;
+  int CartToJnt(const Pose &p, Eigen::VectorXd& q) override;
 
-  int CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd *q,
-                Eigen::VectorXd *qdot) override;
+  int CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd& q,
+                Eigen::VectorXd& qdot) override;
 
   int CartToJnt(const Pose &p, const Twist &v, const Twist &a,
-                Eigen::VectorXd *q, Eigen::VectorXd *qdot,
-                Eigen::VectorXd *qddot) override;
+                Eigen::VectorXd& q, Eigen::VectorXd& qdot,
+                Eigen::VectorXd& qddot) override;
   // compute other passive joints
   int CalcPassive(const Eigen::VectorXd &q, const Pose &p,
-                  Eigen::VectorXd *qpassive) override;
+                  Eigen::VectorXd& qpassive) override;
 
   //! get branchFlags_
   std::vector<int> GetBranchFlags() const { return branchFlags_; }
