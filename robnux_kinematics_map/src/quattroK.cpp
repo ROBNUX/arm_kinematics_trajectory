@@ -88,12 +88,7 @@ void QuattroK::SetGeometry(const Eigen::VectorXd &parameters) {
   }
 }
 
-int QuattroK::JntToCart(const Eigen::VectorXd &q, Pose *p) {
-  if (!p) {
-    std::cout << "input pose parameter is null in function " << __FUNCTION__
-              << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int QuattroK::JntToCart(const Eigen::VectorXd &q, Pose &p) {
   if (!initialized_) {
     std::cout << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
@@ -167,19 +162,14 @@ int QuattroK::JntToCart(const Eigen::VectorXd &q, Pose *p) {
   } else {  // bottom branch
     PP = O1 + rad_c1 * (cos(alpha) * x_c3 - sin(alpha) * y_c3);
   }
-  p->setTranslation(PP);
-  p->setBranchFlags(branchFlags_);
-  p->setJointTurns(jointTurns_);
+  p.setTranslation(PP);
+  p.setBranchFlags(branchFlags_);
+  p.setJointTurns(jointTurns_);
   return 0;
 }
 
 int QuattroK::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                        Pose *p, Twist *v) {
-  if (!p || !v) {
-    std::cout << "input pose and twist parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+                        Pose &p, Twist &v) {
   if (!initialized_) {
     std::cout << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
@@ -195,7 +185,7 @@ int QuattroK::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
               << " in function " << __FUNCTION__ << " at line" << __LINE__
               << std::endl;
   }
-  Vec PP = p->getTranslation();
+  Vec PP = p.getTranslation();
   // step 2, calculate Jacobian matrix
   // J1 qdot = M Pdot, J1 is a diagnal matrix diag( Ax1i * V2i)^T V3i
   // where Ax1i is the unit vector passing through the axis of joint i
@@ -261,19 +251,14 @@ int QuattroK::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
   PPdot.set_z(
       (MN_MTM[6] * left.x() + MN_MTM[7] * left.y() + MN_MTM[8] * left.z()) /
       det_MTM);
-  v->setLinearVel(PPdot);
-  v->setAngularVel(Vec());
+  v.setLinearVel(PPdot);
+  v.setAngularVel(Vec());
   return 0;
 }
 
 int QuattroK::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                        const Eigen::VectorXd &qddot, Pose *p, Twist *v,
-                        Twist *a) {
-  if (!p || !v || !a) {
-    std::cout << "input pose and twist parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+                        const Eigen::VectorXd &qddot, Pose &p, Twist &v,
+                        Twist &a) {
   if (!initialized_) {
     std::cout << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
@@ -284,8 +269,8 @@ int QuattroK::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
   if (ret < 0) {
     return ret;
   }
-  Vec PP = p->getTranslation();
-  Vec pdot = v->getLinearVel();
+  Vec PP = p.getTranslation();
+  Vec pdot = v.getLinearVel();
   std::vector<double> MTM(9, 0);
   Vec left;
   for (size_t i = 0; i < qddot.size(); i++) {

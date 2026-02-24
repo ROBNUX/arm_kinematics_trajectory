@@ -99,15 +99,14 @@ class KINEMATICS_API Scara : public BaseKinematicMap {
   std::string GetName() const override { return std::string("Scara"); }
 
  private:
-  // alpha angle vector in Craig DH convention, alpha_c_, parameters after
-  // calibration
-  Eigen::VectorXd alpha_, alpha_c_;
+  // alpha angle vector in Craig DH convention
+  Eigen::VectorXd alpha_;
   // a offset vector in Craig DH convention
-  Eigen::VectorXd a_, a_c_;
+  Eigen::VectorXd a_;
   // d offset vector in Craig DH convention
-  Eigen::VectorXd d_, d_c_;
+  Eigen::VectorXd d_;
   // theta_ in Craig DH convention
-  Eigen::VectorXd theta_, theta_c_;
+  Eigen::VectorXd theta_;
   // initialized flag
   bool initialized_;
 };

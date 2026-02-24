@@ -123,6 +123,23 @@ class KINEMATICS_API BaseKinematicMap {
                         Eigen::VectorXd& q, Eigen::VectorXd& qdot,
                         Eigen::VectorXd& qddot) = 0;
 
+  
+  /*
+    * @brief Calculate the Jacobian matrix for the kinematic model
+    * @param kine_para, the vector of parameters that characterize
+    * the kinematic model, e.g. DH parameters for serial arm, or geometric parameters for parallel arm
+    * @param p, the pose of the end-effector
+    * @param Jp_t, the output translational part of the Jacobian matrix
+    * @param Jp_r, the output rotational part of the Jacobian matrix
+    * @param reduction, whether we want to reduce the Jacobian matrix by removing the columns corresponding to passive joints, default is false
+    * @return if < 0 something went wrong
+   */
+  virtual int CalcJacobian(const std::vector<double> &kine_para,
+                    Pose& p,
+                    Eigen::MatrixXd& Jp_t,
+                    Eigen::MatrixXd& Jp_r,
+                    const bool reduction =false) = 0;
+
   /*
    * @brief Calculate the passive joint angles for visualization purpose (e.g.
    * for displaying in rviz)
@@ -130,7 +147,7 @@ class KINEMATICS_API BaseKinematicMap {
    @paramp, input moving platform pose
    @param qpassive, output joint angle vector for passive joints
    */
-  virtual int CalcPassive(const Eigen::VectorXd &q, const Pose& p,
+  virtual int CalcPassive(const Eigen::VectorXd& q, const Pose& p,
                           Eigen::VectorXd& qpassive) = 0;
 
   /*
@@ -169,7 +186,7 @@ class KINEMATICS_API BaseKinematicMap {
    * @param baseoff, the vector of default base offset parameters
    * w.r.t. the designated world frame (i.e. from default base to world)
    */
-  virtual void SetDefaultBaseOff(const EigenDRef<Eigen::VectorXd>& aseoff);
+  virtual void SetDefaultBaseOff(const EigenDRef<Eigen::VectorXd>& baseoff);
                          
   /*
    * @brief get default base offset
@@ -202,7 +219,7 @@ class KINEMATICS_API BaseKinematicMap {
   //! whether parameters has been initialized
   bool initialized_;
 
-  //! shall we use caliberated model in all FK and IKs?
+  //! shall we use caliberated model in all FKs?
   bool useCalibrated_;
 
   //! is robot (DH) Caliberated

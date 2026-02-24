@@ -90,14 +90,8 @@ void Quattro::SetGeometry(const Eigen::VectorXd &parameters) {
   }
 }
 
-int Quattro::JntToCart(const Eigen::VectorXd &q, Pose *p) {
+int Quattro::JntToCart(const Eigen::VectorXd &q, Pose &p) {
   std::ostringstream strs;
-  if (!p) {
-    strs << ERR_DESCRIPTION[ERR_INPUT_POINTER_NULL] << ", in function "
-         << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
-    return -ERR_INPUT_POINTER_NULL;
-  }
   if (!initialized_) {
     strs << ERR_DESCRIPTION[ERR_ROB_PARAM_NOT_INITIALIZED]  //"Quattro geometric
                                                             //parameters are not
@@ -185,21 +179,15 @@ int Quattro::JntToCart(const Eigen::VectorXd &q, Pose *p) {
   } else {  // bottom branch
     PP = O1 + rad_c1 * (cos(alpha) * x_c3 - sin(alpha) * y_c3);
   }
-  p->setTranslation(PP);
-  p->setBranchFlags(branchFlags_);
-  p->setJointTurns(jointTurns_);
+  p.setTranslation(PP);
+  p.setBranchFlags(branchFlags_);
+  p.setJointTurns(jointTurns_);
   return 0;
 }
 
 int Quattro::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                       Pose *p, Twist *v) {
+                       Pose &p, Twist &v) {
   std::ostringstream strs;
-  if (!p || !v) {
-    strs << ERR_DESCRIPTION[ERR_INPUT_POINTER_NULL] << ", in function "
-         << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
-    return -ERR_INPUT_POINTER_NULL;
-  }
   if (!initialized_) {
     strs << ERR_DESCRIPTION[ERR_ROB_PARAM_NOT_INITIALIZED]  //"Quattro geometric
                                                             //parameters are not

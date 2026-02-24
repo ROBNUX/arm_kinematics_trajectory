@@ -9,48 +9,9 @@ Quattro_4::Quattro_4()
     : BaseKinematicMap(4, 4),
       branchFlags_(std::vector<int>(1, 0)),
       jointTurns_(std::vector<int>(4, 0)) {
-  // always bottom branch and 0 turns
-  // DoF_ = 4;
-  // A_DoF_ = 4;
-  tipPoints.resize(DoF_);
-  polyCoef_.resize(9);
-  jnt_names_.resize(24);
-  jnt_names_[0] = "JOINT_1_ACT";
-  jnt_names_[1] = "JOINT_2_ACT";
-  jnt_names_[2] = "JOINT_3_ACT";
-  jnt_names_[3] = "JOINT_4_ACT";
-  jnt_names_[4] = "uleg1_con";
-  jnt_names_[5] = "con_lleg_1";
-  jnt_names_[6] = "con2_lleg_1";
-  jnt_names_[7] = "uleg2_con";
-  jnt_names_[8] = "con_lleg_2";
-  jnt_names_[9] = "con2_lleg_2";
-  jnt_names_[10] = "uleg3_con";
-  jnt_names_[11] = "con_lleg_3";
-  jnt_names_[12] = "con2_lleg_3";
-  jnt_names_[13] = "uleg4_con";
-  jnt_names_[14] = "con_lleg_4";
-  jnt_names_[15] = "con2_lleg_4";
-  jnt_names_[16] = "con43_lleg_4";
-  jnt_names_[17] = "con33_lleg_3";
-  jnt_names_[18] = "con23_lleg_2";
-  jnt_names_[19] = "con13_lleg_1";
-  jnt_names_[20] = "lleg1_base_1";
-  jnt_names_[21] = "base_1_2";
-  jnt_names_[22] = "lleg3_base_3";
-  jnt_names_[23] = "base_3_4";
-}
 
-Quattro_4::Quattro_4(const Eigen::VectorXd &parameters)
-    : BaseKinematicMap(4, 4),
-      // here branchFlags_ denotes the branch flag of FK of parallel robot
-      branchFlags_(std::vector<int>(1, 0)),
-      jointTurns_(std::vector<int>(4, 0)) {
-  // DoF_ = 4;
-  // A_DoF_= 4;
   tipPoints.resize(DoF_);
   polyCoef_.resize(9);
-  SetGeometry(parameters);
   jnt_names_.resize(24);
   jnt_names_[0] = "JOINT_1_ACT";
   jnt_names_[1] = "JOINT_2_ACT";
@@ -108,24 +69,24 @@ void Quattro_4::SetGeometry(const Eigen::VectorXd &parameters) {
   }
 }
 
-int Quattro_4::JntToCart(const Eigen::VectorXd &q, Pose *p) {
-  if (!p) {
-    std::cout << "input pose parameter is null in function " << __FUNCTION__
-              << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::JntToCart(const Eigen::VectorXd& q, Pose& p) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
   if (q.size() < DoF_) {
-    std::cout << "input joint vector has wrong dimension in function "
+    strs.str("");
+    strs << "input joint vector has wrong dimension in function "
               << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+    LOG_ERROR(strs.str());
     return -13;
   }
-  // std::vector<Vec> tipPoints;
+
   for (size_t i = 0; i < DoF_; i++) {
     double proj_radius = R1_ + a_b1_ * cos(q(i) + delta1_);
     // assume all actuated arms are symmetrically arranged around a circle
@@ -139,17 +100,15 @@ int Quattro_4::JntToCart(const Eigen::VectorXd &q, Pose *p) {
                             tipPoints[3], d1_, m_, p);
 }
 
-int Quattro_4::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                         Pose *p, Twist *v) {
-  if (!p || !v) {
-    std::cout << "input pose and twist parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
+                         Pose& p, Twist& v) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
   int ret = this->JntToCart(q, p);
@@ -157,17 +116,21 @@ int Quattro_4::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
     return ret;
   }
   if (qdot.size() != A_DoF_) {
-    std::cout << " input joint velocity dimension is wrong "
+    strs.str("");
+    strs << " input joint velocity dimension is wrong "
               << " in function " << __FUNCTION__ << " at line" << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
   }
-  Vec PP = p->getTranslation();
-  Quaternion qq = p->getQuaternion();
+  Vec PP = p.getTranslation();
+  Quaternion qq = p.getQuaternion();
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
@@ -226,54 +189,45 @@ int Quattro_4::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
   }
   Vector4d x = M2.inverse() * b;
   Vec PPdot(x(0), x(1), x(2));
-  v->setLinearVel(PPdot);
+  v.setLinearVel(PPdot);
   Vec angularVel(0, 0, x(3));
-  v->setAngularVel(angularVel);
+  v.setAngularVel(angularVel);
   return 0;
 }
 
-int Quattro_4::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                         const Eigen::VectorXd &qddot, Pose *p, Twist *v,
-                         Twist *a) {
-  if (!p || !v || !a) {
-    std::cout << "input pose and twist parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
+                         const Eigen::VectorXd& qddot, Pose& p, Twist& v,
+                         Twist& a) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
   int ret = this->JntToCart(q, qdot, p, v);
   if (ret < 0) {
     return ret;
   }
-  Vec PP = p->getTranslation();
-  Quaternion qq = p->getQuaternion();
+  Vec PP = p.getTranslation();
+  Quaternion qq = p.getQuaternion();
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
   double syaw = sin(yaw);
 
-  Vec PPdot = v->getLinearVel();
-  Vec angularVel = v->getAngularVel();
-  /*
-  Vec Euler(yaw, pitch, roll);
-  Vec EulerDot;
-  if (!Rotation::GetEulerVelZYX(Euler, angularVel, &EulerDot)) {
-      std::cout << "Quattro_4 compute yawdot of current angularVel got error "
-            << " in function "
-            << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      return -38;
-  }
-   */
+  Vec PPdot = v.getLinearVel();
+  Vec angularVel = v.getAngularVel();
+ 
   double yawdot = angularVel.z();  // EulerDot.x();
   double yawdot_sq = yawdot * yawdot;
 
@@ -345,35 +299,35 @@ int Quattro_4::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
   }
   Vector4d x = M2.inverse() * b;
   Vec PPddot(x(0), x(1), x(2));
-  a->setLinearVel(PPdot);
+  a.setLinearVel(PPddot);
   Vec angularAcc(0, 0, x(3));
-  a->setAngularVel(angularAcc);
+  a.setAngularVel(angularAcc);
   return 0;
 }
 
-int Quattro_4::CartToJnt(const Pose &p, Eigen::VectorXd *q) {
-  if (!q) {
-    std::cout << "input joint angle parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro_4 geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro_4 geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
-  if (q->size() != A_DoF_) {
-    q->resize(A_DoF_);
+  if (q.size() != A_DoF_) {
+    q.resize(A_DoF_);
   }
   Vec PP = p.getTranslation();
   Quaternion qq = p.getQuaternion();
 
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
@@ -414,33 +368,31 @@ int Quattro_4::CartToJnt(const Pose &p, Eigen::VectorXd *q) {
     }
     double beta = atan2(A2, A3);
     // always use the elbow-down solution for each arms
-    (*q)(i) = M_PI - asin(tmp2) - beta - delta1_;
-    if ((*q)(i) > M_PI) {
-      (*q)(i) -= 2 * M_PI;
+    q(i) = M_PI - asin(tmp2) - beta - delta1_;
+    if (q(i) > M_PI) {
+      q(i) -= 2 * M_PI;
     }
-    if ((*q)(i) < -M_PI) {
-      (*q)(i) += 2 * M_PI;
+    if (q(i) < -M_PI) {
+      q(i) += 2 * M_PI;
     }
   }
   return 0;
 }
 
-int Quattro_4::CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd *q,
-                         Eigen::VectorXd *qdot) {
-  if (!q || !qdot) {
-    std::cout << "input pose and twist parameter is null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
+                         Eigen::VectorXd& qdot) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro_4 geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
-  if (q->size() != A_DoF_ || qdot->size() != A_DoF_) {
-    q->resize(A_DoF_);
-    qdot->resize(A_DoF_);
+  if (q.size() != A_DoF_ || qdot.size() != A_DoF_) {
+    q.resize(A_DoF_);
+    qdot.resize(A_DoF_);
   }
   int ret = this->CartToJnt(p, q);
   if (ret < 0) {
@@ -451,9 +403,11 @@ int Quattro_4::CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd *q,
 
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
@@ -494,35 +448,35 @@ int Quattro_4::CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd *q,
       righti = V3i.dot(PPdot + V0 * yawdot);
     }
     if (abs(diagJ1i) < K_EPSILON) {
-      std::cout << "arm " << i << " in IK singular "
+      strs.str("");
+      strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", line " << __LINE__
                 << std::endl;
+      LOG_ERROR(strs.str());
       return -21;
     }
-    (*qdot)(i) = righti / diagJ1i;
+    qdot(i) = righti / diagJ1i;
   }
   return 0;
 }
 
-int Quattro_4::CartToJnt(const Pose &p, const Twist &v, const Twist &a,
-                         Eigen::VectorXd *q, Eigen::VectorXd *qdot,
-                         Eigen::VectorXd *qddot) {
-  if (!q || !qdot || !qddot) {
-    std::cout << "input q, qdot, qddot pointers are null in function "
-              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    return -12;
-  }
+int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
+                         Eigen::VectorXd& q, Eigen::VectorXd& qdot,
+                         Eigen::VectorXd& qddot) {
+  std::ostringstream strs;
   if (!initialized_) {
-    std::cout << "Quattro geometric parameters are not initialized"
+    strs.str("");
+    strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -16;
   }
-  if (q->size() != A_DoF_ || qdot->size() != A_DoF_ ||
-      qddot->size() != A_DoF_) {
-    q->resize(A_DoF_);
-    qdot->resize(A_DoF_);
-    qddot->resize(A_DoF_);
+  if (q.size() != A_DoF_ || qdot.size() != A_DoF_ ||
+      qddot.size() != A_DoF_) {
+    q.resize(A_DoF_);
+    qdot.resize(A_DoF_);
+    qddot.resize(A_DoF_);
   }
   int ret = this->CartToJnt(p, v, q, qdot);
   if (ret < 0) {
@@ -534,9 +488,11 @@ int Quattro_4::CartToJnt(const Pose &p, const Twist &v, const Twist &a,
   Quaternion qq = p.getQuaternion();
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
@@ -605,31 +561,23 @@ int Quattro_4::CartToJnt(const Pose &p, const Twist &v, const Twist &a,
               V3i_c_Ax1i_dot_Ax1i_c_V2i * (*qdot)(i) * (*qdot)(i);
 
     if (abs(diagJ1i) < K_EPSILON) {
-      std::cout << "arm " << i << " in IK singular "
+      strs.str("");
+      strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", line " << __LINE__
                 << std::endl;
+      LOG_ERROR(strs.str());
       return -21;
     }
-    (*qddot)(i) = righti / diagJ1i;
+    qddot(i) = righti / diagJ1i;
   }
   return 0;
 }
 
-int Quattro_4::CalcPassive(const Eigen::VectorXd &q, const Pose &p,
-                           Eigen::VectorXd *qpassive) {
-  if (!qpassive) {
-    std::cout << "input qpassive pointer is null in function " << __FUNCTION__
-              << " at line " << __LINE__ << std::endl;
-    return -21;
-  }
-  if (qpassive->size() != 20) {
-    qpassive->resize(20);
-    /*
-    std::cout << "input qpassive pointer has wrong size "
-             << __FUNCTION__ << " at line " << __LINE__
-             << std::endl;
-   return -22;
-     */
+int Quattro_4::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
+                           Eigen::VectorXd& qpassive) {
+  std::ostringstream strs;
+  if (qpassive.size() != 20) {
+    qpassive.resize(20);
   }
   // there are totally 13 passive joints (and additional 4 passive joints,
   // the ones which are in the parallelogram rotating longer side, are
@@ -670,9 +618,11 @@ int Quattro_4::CalcPassive(const Eigen::VectorXd &q, const Pose &p,
   Quaternion qq = p.getQuaternion();
   double yaw, pitch, roll;
   if (!qq.GetEulerZYX(&yaw, &pitch, &roll)) {
-    std::cout << "Quattro_4 compute yaw of current pose got error "
+    strs.str("");
+    strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -37;
   }
   double cyaw = cos(yaw);
@@ -707,24 +657,24 @@ int Quattro_4::CalcPassive(const Eigen::VectorXd &q, const Pose &p,
     double comp_V3i_z = V3i.dot(Ax1i);
     // get angle gamma1 between V3i and Ax1i
     double cgamma1 = comp_V3i_z / V3i.Norm();
-    (*qpassive)(3 * i + 1) = acos(cgamma1) - M_PI / 2.0;
-    (*qpassive)(3 * i + 2) = (*qpassive)(3 * i + 1);
+    qpassive(3 * i + 1) = acos(cgamma1) - M_PI / 2.0;
+    qpassive(3 * i + 2) = qpassive(3 * i + 1);
 
     // projection of V3i towards the p
     Vec V3i_proj = V3i - comp_V3i_z * Ax1i;
     double cgamma2 = V3i_proj.dot(unit_x);
     double sgamma2 = V3i_proj.dot(unit_y);
-    (*qpassive)(3 * i) =
+    qpassive(3 * i) =
         atan2(sgamma2, cgamma2) - (M_PI / 2.0 + QuattroRvizInitAngle);
   }
-  (*qpassive)(12) = -(*qpassive)(10);
-  (*qpassive)(13) = -(*qpassive)(7);
-  (*qpassive)(14) = -(*qpassive)(4);
-  (*qpassive)(15) = -(*qpassive)(1);
-  (*qpassive)(16) = -(*qpassive)(0) - q[0] - delta1_;
-  (*qpassive)(17) = yaw - 3 * M_PI / 4;
-  (*qpassive)(18) = -(*qpassive)(6) - q[2] - delta1_;
-  (*qpassive)(19) = (*qpassive)(17);
+  qpassive(12) = -qpassive(10);
+  qpassive(13) = -qpassive(7);
+  qpassive(14) = -qpassive(4);
+  qpassive(15) = -qpassive(1);
+  qpassive(16) = -qpassive(0) - q[0] - delta1_;
+  qpassive(17) = yaw - 3 * M_PI / 4;
+  qpassive(18) = -qpassive(6) - q[2] - delta1_;
+  qpassive(19) = qpassive(17);
   return 0;
 }
 

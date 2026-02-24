@@ -4,15 +4,15 @@
 namespace kinematics_lib {
 
 serialArm::serialArm(const size_t DoF): BaseKinematicMap(DoF, DoF),
-    alpha_(std::vector<double>(DoF, 0)),
+    alpha_(Eigen::VectorXd::Zero(DoF)),
     alpha_c_(alpha_),
-    a_(std::vector<double>(DoF, 0)),
+    a_(Eigen::VectorXd::Zero(DoF)),
     a_c_(a_),
-    beta_(std::vector<double>(DoF, 0)),
+    beta_(Eigen::VectorXd::Zero(DoF)),
     beta_c_(beta_),
-    d_(std::vector<double>(DoF, 0)),
+    d_(Eigen::VectorXd::Zero(DoF)),
     d_c_(d_),
-    theta_(std::vector<double>(DoF,0)),
+    theta_(Eigen::VectorXd::Zero(DoF)),
     theta_c_(theta_),
     resetCache_(true) {
     jnt_names_.resize(DoF);
@@ -21,18 +21,9 @@ serialArm::serialArm(const size_t DoF): BaseKinematicMap(DoF, DoF),
     }
 }
   
-serialArm::serialArm(const std::vector<double> &kine_para):
-    BaseKinematicMap((kine_para.size() - 14)/5, (kine_para.size()-14)/5),
-    resetCache_(true) {
-    SetGeometry(kine_para);
-    jnt_names_.resize(DoF_);
-    for (size_t i=0; i < DoF_; i++) {
-      jnt_names_[i]="JOINT_" + std::to_string(i) + "_ACT";
-    }
-}
 
 // kine_para =[ [alpha], [a], [theta], [d] ]
-void serialArm::SetGeometry(const std::vector<double> &kine_para) {
+void serialArm::SetGeometry(const Eigen::VectorXd& kine_para) {
     std::ostringstream strs;
     if (initialized_) {
         strs.str("");
@@ -41,62 +32,41 @@ void serialArm::SetGeometry(const std::vector<double> &kine_para) {
         LOG_ERROR(strs);
         return;
     }
-    //strs.str("");
-    //strs << "input kine_para in serialArm SetGeometry is " << kine_para.size()
-    //    << std::endl;
-    //LOG_ERROR(strs);
-    if (kine_para.size() >= 5 * DoF_) {
+
+    if (kine_para.size() >= 4 * DoF_) {
        for (size_t i=0; i < DoF_; i++) {
-          alpha_[i] = kine_para[i];
-          a_[i] = kine_para[DoF_ + i];
-          theta_[i] = kine_para[2 * DoF_ + i];
-          d_[i] = kine_para[3 * DoF_ + i];
-          beta_[i] = kine_para[4 * DoF_ + i];
+          alpha_(i) = kine_para(i);
+          a_(i) = kine_para(DoF_ + i);
+          theta_(i) = kine_para(2 * DoF_ + i);
+          d_(i) = kine_para(3 * DoF_ + i);
        }
-       // during initialization, we set calibrated parameters to be same as
-       // default parameters
        alpha_c_ = alpha_;
        a_c_ = a_;
        d_c_ = d_;
        theta_c_ = theta_;
-       beta_c_ = beta_;
        initialized_ = true;
     } else {
         strs.str("");
-        strs << GetName() << ":" << "input parameters has dimension less than 5 * DoF in "
+        strs << GetName() << ":" << "input parameters has dimension less than 4 * DoF in "
                    << __FUNCTION__ << " line " << __LINE__ << std::endl;
         LOG_ERROR(strs);
     }
 }
-bool serialArm::resetCalibration() {
-  alpha_c_ = alpha_;
-  a_c_ = a_;
-  d_c_ = d_;
-  theta_c_ = theta_;
-  beta_c_ = beta_;
-  isDHCalibrated_ = false;
-  std::ostringstream strs;
-  strs.str("");
-  strs << GetName() << ": calib model is reset to initial model" << std::endl;
-  LOG_INFO(strs);
-  return true;
-}
-void serialArm::UpdateDH(const std::vector<double> &orig_dh,
-                         const Eigen::VectorXd &jnt,
-                         std::vector<double> *new_dh) const {
+
+void serialArm::UpdateDH(const Eigen::VectorXd& q, 
+                         Eigen::VectorXd& theta, Eigen::VectorXd& d) {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
-         << " children class, in "
+         << " children class (depend on specific kinematic structure), in "
          << __FUNCTION__ << " line " << __LINE__ << std::endl;
     LOG_ALARM(strs);
-    *new_dh = orig_dh;  // no change because we don't the robot type
 }
 
-void serialArm::UpdateDH(const Eigen::VectorXd &jnt,
-                         std::vector<double> *theta,
-                         std::vector<double> *d
-                         ) const {
+void  serialArm::UpdateConfigTurn(const Eigen::VectorXd& theta,
+                                  const Eigen::VectorXd &d,
+                                  std::vector<int>& branchFlags,
+                                  std::vector<int>& jointTurns) const {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
@@ -105,253 +75,32 @@ void serialArm::UpdateDH(const Eigen::VectorXd &jnt,
     LOG_ALARM(strs);
 }
 
-void serialArm::UpdateDH(const Eigen::VectorXd &delta_p,
-                         Eigen::VectorXd * base,
-                         std::vector<double> *alpha,
-                         std::vector<double> *a,
-                         std::vector<double> *theta,
-                         std::vector<double> *d,
-                         std::vector<double> *beta,
-                         Eigen::Vector3d *tool,
-                         EigenDRef<Eigen::Matrix3d> * laser2CartMap) {
+int serialArm::JntToCart(const Eigen::VectorXd& q,
+                       Pose& p) {
     std::ostringstream strs;
-    if (!base || !alpha || !a || !theta || !d || !beta || !tool) {
-        strs.str("");
-        strs << GetName() << ":" << "input parameters is null to function " << __FUNCTION__
-               <<", at line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return;
-    }
-     size_t numParam = delta_p.size();
-     if (numParam > id_jacobian_cols_.size()) {
-        strs.str("");
-        strs << GetName() << ":" << "number of hidden parameters " << numParam <<
-                "not equal to independent cols " << id_jacobian_cols_.size()
-             << std::endl;
-        LOG_ERROR(strs);
-        return;
-     }
-     // now asisgn back all iterated parameters
-     for (size_t i=0; i < id_jacobian_cols_.size(); i++) {
-       size_t  j = id_jacobian_cols_[i];
-       if (j < 6) {
-          (*base)(j) += delta_p(i);
-       } else if (j < 6 + 5 * DoF_ + 3) {
-          size_t cur_ind = j - 6;
-          // 5 means each group has 5 dh parameters
-          size_t group_id = floor(cur_ind / 5);
-          size_t remain_id = cur_ind - group_id * 5;
-          if (group_id < DoF_) {
-            //means this parameter must belong to dh of the group group_id
-            if (remain_id == 0) {  // alpha parameter
-              alpha->at(group_id)  += delta_p(i);
-            } else if (remain_id == 1) { // a parameter
-              a->at(group_id)  += delta_p(i);
-            } else if (remain_id == 2) { // theta parameter
-              theta->at(group_id) += delta_p(i);
-            } else if (remain_id == 3) {  // d parameter
-              d->at(group_id) += delta_p(i);
-            } else {
-              beta->at(group_id) += delta_p(i);
-            }
-          } else {
-            (*tool)(remain_id) += delta_p(i);
-          }
-       } else if (j < 6 + 5 * DoF_ + 12 && laser2CartMap) { // laser2Cart matrix
-          size_t cur_ind = j - 9 - 5 * DoF_;
-          size_t row =  floor(cur_ind / 3);
-          size_t col = cur_ind - row * 3;
-          // increment assign mapping matrix
-          (*laser2CartMap)(row, col) += delta_p(i);
-       }
-     }
-     if (laser2CartMap) {
-       strs.str("");
-       strs << GetName() << ":" << "laser2Cart=" << *laser2CartMap << std::endl;
-       LOG_INFO(strs);
-     }
-}
-
-void serialArm::UpdateDH2(const Eigen::VectorXd &delta_p,
-                         Eigen::VectorXd * base,
-                         std::vector<double> *alpha,
-                         std::vector<double> *a,
-                         std::vector<double> *theta,
-                         std::vector<double> *d,
-                         std::vector<double> *beta,
-                         Eigen::Vector3d *tool,
-                         EigenDRef<Eigen::Matrix3d>  *laser2CartMap_l,
-                         EigenDRef<Eigen::Matrix3d>  *laser2CartMap_r
-                         ) {
-  std::ostringstream strs;
-  if (!base || !alpha || !a || !theta || !d || !beta || !tool) {
-        strs.str("");
-        strs << GetName() << ":" << "input parameters is null to function " << __FUNCTION__
-               <<", at line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return;
-  }
-  size_t numParam = delta_p.size();
-  if (numParam != id_jacobian_cols_.size()) {
-        strs.str("");
-        strs << GetName() << ":" << "number of hidden parameters " << numParam <<
-                "not equal to independent cols " << id_jacobian_cols_.size()
-             << std::endl;
-        LOG_ERROR(strs);
-        return;
-  }
-  // now asisgn back all iterated parameters
-  for (size_t i=0; i < id_jacobian_cols_.size(); i++) {
-       size_t  j = id_jacobian_cols_[i];
-       if (j < 6) {
-          (*base)(j) += delta_p(i);
-       } else if (j < 6 + 5 * DoF_ + 3) {
-          size_t cur_ind = j - 6;
-          // 5 means each group has 5 dh parameters
-          size_t group_id = floor(cur_ind / 5);
-          size_t remain_id = cur_ind - group_id * 5;
-          if (group_id < DoF_) {
-            //means this parameter must belong to dh of the group group_id
-            if (remain_id == 0) {  // alpha parameter
-              alpha->at(group_id)  += delta_p(i);
-            } else if (remain_id == 1) { // a parameter
-              a->at(group_id)  += delta_p(i);
-            } else if (remain_id == 2) { // theta parameter
-              theta->at(group_id) += delta_p(i); 
-            } else if (remain_id == 3) {  // d parameter
-              d->at(group_id) += delta_p(i); 
-            } else {
-              beta->at(group_id) += delta_p(i);
-            }
-          } else {
-            (*tool)(remain_id) += delta_p(i);
-          }
-       } else if (j < 6 + 5 * DoF_ + 12 && laser2CartMap_l) { // laser2Cart matrix
-          size_t cur_ind = j - 9 - 5 * DoF_;
-          size_t row =  floor(cur_ind / 3);
-          size_t col = cur_ind - row * 3;
-          // increment assign mapping matrix
-          (*laser2CartMap_l)(row, col) += delta_p(i);
-       } else if (j < 6 + 5 * DoF_ + 21 && laser2CartMap_r) { // laser2Cart matrix
-          size_t cur_ind = j - 18 - 5 * DoF_;
-          size_t row =  floor(cur_ind / 3);
-          size_t col = cur_ind - row * 3;
-          // increment assign mapping matrix
-          (*laser2CartMap_r)(row, col) += delta_p(i);
-       }
-     }
-     if (laser2CartMap_l) {
-       strs.str("");
-       strs << GetName() << ":" << "laser2Cart_l=" << *laser2CartMap_l << std::endl;
-       LOG_INFO(strs);
-     }
-     if (laser2CartMap_r) {
-       strs.str("");
-       strs << GetName() << ":" << "laser2Cart_r=" << *laser2CartMap_r << std::endl;
-       LOG_INFO(strs);
-     }
-}
-
-bool serialArm::GetDHFrame(const std::vector<double> & q,
-                           const int  jnt_index, Frame *fm) const {
-  std::ostringstream strs;
-  if (!fm) {
-    strs.str("");
-    strs << GetName() << ":" << "input pose pointer is null in " << __FUNCTION__
-              << ", at line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
-    return false;
-  }
-  int sz_q = q.size();
-  if (jnt_index < 0 || jnt_index >= DoF_ || sz_q != DoF_)  {
-    strs.str("");
-    strs << GetName() << ":" << "jnt_index= " << jnt_index
-         << ", sz_q=" << sz_q << " in function " << __FUNCTION__
-              << ", at line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
-    return false;
-  }
-  /*
-  std::vector<double> qtmp;
-  qtmp.insert(qtmp.end(), q.begin(), q.end());
-  for (size_t i=jnt_index+1; i < DoF_; i++) {
-    qtmp[i] = 0;
-  }
-  */
-
-  std::vector<double> a_tmp, alpha_tmp, beta_tmp,  d_tmp, theta_tmp;
-  if (useCalibrated_) {  // if use calibrated parameters
-      a_tmp = a_c_;
-      alpha_tmp = alpha_c_;
-      beta_tmp = beta_c_;
-      d_tmp = d_c_;
-      theta_tmp = theta_c_;
-  } else {
-      a_tmp = a_;
-      alpha_tmp = alpha_;
-      beta_tmp = beta_;
-      d_tmp = d_;
-      theta_tmp = theta_;
-  }
-  Eigen::VectorXd qv;
-  StdVec2EigenVec(q, &qv);
-  // update dh based upon joint feedback
-  UpdateDH(qv, &theta_tmp, &d_tmp);
-
-  Frame tmp = defaultBaseOff_;
-  for (size_t i=0; i < jnt_index+1; i++) {
-    tmp = tmp * Frame::DH_Craig1989_EX(a_tmp[i],
-                                    alpha_tmp[i],
-                                    beta_tmp[i],
-                                    d_tmp[i],
-                                    theta_tmp[i]);
-    
-  }
-
-  *fm = tmp;
-  return true;
-}
-
-int serialArm::JntToCart(const std::vector<double> & q,
-                       Pose *p) {
-    std::ostringstream strs;
-    if (!p) {
-        strs.str("");
-        strs << GetName() << ":" << "input pose pointer is null in " << __FUNCTION__
-                 << ", at line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return -ERR_INPUT_POINTER_NULL;
-    }
-    std::vector<double> a_tmp, alpha_tmp, beta_tmp,  d_tmp, theta_tmp;
+    Eigen::VectorXd a_tmp, alpha_tmp, d_tmp, theta_tmp;
     if (useCalibrated_) {  // if use calibrated parameters
        a_tmp = a_c_;
        alpha_tmp = alpha_c_;
-       beta_tmp = beta_c_;
        d_tmp = d_c_;
        theta_tmp = theta_c_;
 
-       Eigen::VectorXd  alpha0;
-       StdVec2EigenVec(alpha_tmp, &alpha0);
        strs.str(""); 
-       strs << GetName() << ", in FK, useCalibrated=" << useCalibrated_ <<  ", alpha=" << alpha0 << std::endl;
+       strs << GetName() << ", in FK, useCalibrated=" << useCalibrated_ << std::endl;
        LOG_INFO(strs);
     } else {
        a_tmp = a_;
        alpha_tmp = alpha_;
-       beta_tmp = beta_;
        d_tmp = d_;
        theta_tmp = theta_;
     }
-    Eigen::VectorXd qv;
-    StdVec2EigenVec(q, &qv);
     // update dh based upon joint feedback
-    UpdateDH(qv, &theta_tmp, &d_tmp);
+    UpdateDH(q, theta_tmp, d_tmp);
 
     Frame tmp = defaultBaseOff_;
     for (size_t i=0; i < DoF_; i++) {
-      tmp = tmp * Frame::DH_Craig1989_EX(a_tmp[i],
+      tmp = tmp * Frame::DH_Craig1989(a_tmp[i],
                                       alpha_tmp[i],
-                                      beta_tmp[i],
                                       d_tmp[i],
                                       theta_tmp[i]);
     }
@@ -362,107 +111,17 @@ int serialArm::JntToCart(const std::vector<double> & q,
     std::vector<int>  jointTurns;
     // get flags and turn from final theta and d including their initial values
     // plus joint displacement
-    UpdateConfigTurn(theta_tmp, d_tmp, &branchFlags, &jointTurns);
-    /*
-    strs.str("");
-    strs << " tmp.v " << tmp.getTranslation().ToString() << std::endl;
-    strs << " tmp.q " << tmp.getQuaternion().ToString(false) << std::endl;
-    strs << " tmp.r "  << tmp.getRotation().ToString() << ", mat=" << tmp.getRotation().ToEigenMat()  << std::endl;
-    LOG_INFO(strs);
-    */
-    p->setFrame(tmp);
-    //strs.str("");
-    //strs << "tmp=" << tmp.ToString(true) << std::endl;
-    //LOG_INFO(strs);
-    p->setBranchFlags(branchFlags);
-    p->setJointTurns(jointTurns);
+    UpdateConfigTurn(theta_tmp, d_tmp, branchFlags, jointTurns);
+    p.setFrame(tmp);
+    p.setBranchFlags(branchFlags);
+    p.setJointTurns(jointTurns);
     return 0;
 }
 
-bool serialArm::PickSubJacobian(const Eigen::MatrixXd  &Jp_t,
-                                const Eigen::MatrixXd &Jp_r,
-                                Eigen::MatrixXd *Js_t,
-                                Eigen::MatrixXd *Js_r,
-                                const bool reduction) {
+int serialArm::JntToCart(const Eigen::VectorXd& q,
+                     const Eigen::VectorXd& qdot,
+                     Pose& p, Twist& v) {
     std::ostringstream strs;
-    strs.str("");
-    strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
-         << " children class, in "
-         << __FUNCTION__ << " line " << __LINE__ << std::endl;
-    LOG_ALARM(strs);
-    return false;
-}
-
-bool serialArm::PickSubJacobianForPara(const Eigen::MatrixXd &Jt_p,
-                                       const Eigen::MatrixXd &Jp_r, 
-                                       Eigen::MatrixXd *Js_t1, 
-                                       Eigen::MatrixXd *Js_r1,
-                                       const bool reduction) {
-    std::ostringstream strs;
-    strs.str("");
-    strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
-         << " children class, in "
-         << __FUNCTION__ << " line " << __LINE__ << std::endl;
-    LOG_ALARM(strs);
-    return false;
-}
-/*
-void serialArm::ForwardQDot(const Eigen::VectorXd &qdot, Eigen::VectorXd *aqdot) const {
-    std::ostringstream strs;
-    if (!aqdot) {
-      strs.str("");
-      strs << "input parameter is null in function "
-                  << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return;
-    }
-    if (!initialized_) {
-      strs.str("");
-      strs << "serialArm geometric parameters are not initialized"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return; 
-    }
-    aqdot->resize(DoF_);
-    for (size_t i=0; i < DoF_; i++) {
-      (*aqdot)(i) = qdot(i) * pitch_(i);
-    }
-}
-
-void serialArm::BackwardQDot(const Eigen::VectorXd &aqdot, Eigen::VectorXd *qdot) const {
-    std::ostringstream strs;
-    if (!qdot) {
-      strs.str("");
-      strs << "input parameter is null in function "
-                  << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return;
-    }
-    if (!initialized_) {
-      strs.str("");
-      strs << "serialArm geometric parameters are not initialized"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return; 
-    }
-    qdot->resize(DoF_);
-    for (size_t i=0; i < DoF_; i++) {
-      (*qdot)(i) = aqdot(i) / pitch_(i);
-    }
-}
-*/
-int serialArm::JntToCart(const std::vector<double> &q,
-                     const std::vector<double> &qdot,
-                     Pose *p, Twist *v) {
-    std::ostringstream strs;
-    if (!p || !v) {
-      strs.str("");
-      strs << GetName() << ":" << "input pose and twist parameter is null in function "
-                  << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return -ERR_INPUT_POINTER_NULL;
     }
     if (!initialized_) {
       strs.str("");
@@ -481,34 +140,31 @@ int serialArm::JntToCart(const std::vector<double> &q,
       return -ERR_INPUT_PARA_WRONG_DIM; 
     }
     // need to compute the Jacobian
-    std::vector<double> a_tmp, alpha_tmp, beta_tmp, d_tmp, theta_tmp;
+    Eigen::VectorXd a_tmp, alpha_tmp, d_tmp, theta_tmp;
     if (useCalibrated_) {  // if use calibrated parameters
        a_tmp = a_c_;
        alpha_tmp = alpha_c_;
-       beta_tmp = beta_c_;
        d_tmp = d_c_;
        theta_tmp = theta_c_;
     } else {
        a_tmp = a_;
        alpha_tmp = alpha_;
-       beta_tmp = beta_;
        d_tmp = d_;
        theta_tmp = theta_;
     }
-    Eigen::VectorXd qv;
-    StdVec2EigenVec(q, &qv);
-    // update dh based upon joint feedback
-    UpdateDH(qv, &theta_tmp, &d_tmp);
 
-    std::vector<double> kine_para;
-    kine_para.insert(kine_para.end(), alpha_tmp.begin(), alpha_tmp.end());
-    kine_para.insert(kine_para.end(), a_tmp.begin(), a_tmp.end());
-    kine_para.insert(kine_para.end(), theta_tmp.begin(), theta_tmp.end());
-    kine_para.insert(kine_para.end(), d_tmp.begin(), d_tmp.end());
-    kine_para.insert(kine_para.end(), beta_tmp.begin(), beta_tmp.end());
+    // update dh based upon joint feedback
+    UpdateDH(q, theta_tmp, d_tmp);
+
+    Eigen::VectorXd kine_para(4 * DoF_);
+    kine_para.segment(0, DoF_) = alpha_tmp;
+    kine_para.segment(DoF_, DoF_) = a_tmp;
+    kine_para.segment(2 * DoF_, DoF_) = theta_tmp;
+    kine_para.segment(3 * DoF_, DoF_) = d_tmp;
+
     // Pose tmp_p;
     Eigen::MatrixXd Jp_t, Jp_r;
-    int ret = CalcJacobian(kine_para, p, &Jp_t, &Jp_r);
+    int ret = CalcJacobian(kine_para, p, Jp_t, Jp_r);
     if (ret < 0) {
         return ret;
     }
@@ -530,24 +186,16 @@ int serialArm::JntToCart(const std::vector<double> &q,
 int serialArm::JntToCart(const std::vector<double> &q,
                      const std::vector<double> &qdot,
                      const std::vector<double> &qddot,
-                     Pose  *p, Twist *v, Twist *a) {
+                     Pose& p, Twist& v, Twist& a) {
     return 0;
     
 }
 
 // nominal velocity IK
 int serialArm::CartToJnt(const Pose &p, const Twist &v,
-                     std::vector<double> *q,
-                     std::vector<double> *qdot) {
-    std::ostringstream strs;
-    if (!q || !qdot) {
-       strs.str("");
-       strs << GetName() << ":" << "Input q and qdot vectors are null"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-       return -ERR_INPUT_POINTER_NULL;  
-    }
+              Eigen::VectorXd &q,
+              Eigen::VectorXd &qdot) {
+   std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
       strs << GetName() <<  " geometric parameters are not initialized"
@@ -567,12 +215,16 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
       LOG_ERROR(strs);
       return -ERR_ROB_DEFAULT_IK_NOT_CANO;
     }
-    int ret = CartToJnt(p, q);
+    // first compute position IK into a std::vector, then convert to Eigen
+    std::vector<double> q_std;
+    int ret = CartToJnt(p, q_std);
     if (ret < 0) {
       return ret;
     }
-    if (qdot->size() != DoF_) {
-      qdot->resize(DoF_);
+    // convert to Eigen
+    StdVec2EigenVec(q_std, &q);
+    if (qdot.size() != DoF_) {
+      qdot.resize(DoF_);
     }
     // need to compute the Jacobian
     std::vector<double> a_tmp, alpha_tmp, beta_tmp, d_tmp, theta_tmp;
@@ -582,8 +234,8 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
     d_tmp = d_;
     theta_tmp = theta_;
     Eigen::VectorXd qv;
-    StdVec2EigenVec(*q, &qv);
-    UpdateDH(qv, &theta_tmp, &d_tmp); 
+    StdVec2EigenVec(q_std, &qv);
+    UpdateDH(qv, theta_tmp, d_tmp); 
     std::vector<double> kine_para;
     kine_para.insert(kine_para.end(), alpha_tmp.begin(), alpha_tmp.end());
     kine_para.insert(kine_para.end(), a_tmp.begin(), a_tmp.end());
@@ -595,7 +247,7 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
 
     Pose tmp_p;
     Eigen::MatrixXd Jp_t, Jp_r;
-    ret = CalcJacobian(kine_para, &tmp_p, &Jp_t, &Jp_r, true);
+    ret = CalcJacobian(kine_para, tmp_p, Jp_t, Jp_r, true);
     if (ret < 0) {
         return ret;
     }
@@ -634,6 +286,16 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
     return 0;
 }
 
+// position-only IK (default not implemented for generic serialArm)
+int serialArm::CartToJnt(const Pose &p, std::vector<double> &q) {
+  std::ostringstream strs;
+  strs.str("");
+  strs << GetName() << ": default position IK not implemented for serialArm in " << __FUNCTION__
+     << " at line " << __LINE__ << std::endl;
+  LOG_ALARM(strs);
+  return -ERR_ROB_DEFAULT_IK_NOT_CANO;
+}
+
 double serialArm::PickCartErr(const Eigen::Vector3d &errT,
                                            const Eigen::Vector3d &errR, 
                                            Eigen::VectorXd *b,
@@ -661,35 +323,28 @@ void  serialArm::UpdateConfigTurn(const std::vector<double> & theta,
 
 // these will be left to next/next week to do
 int serialArm::CartToJnt(const Pose &p, const Twist& v, const Twist& a,
-                         std::vector<double> *q,
-                         std::vector<double> *qdot,
-                         std::vector<double> *qddot) {
-    return 0;
+             Eigen::VectorXd &q,
+             Eigen::VectorXd &qdot,
+             Eigen::VectorXd &qddot) {
+  return 0;
 }
 
 // nominal Jacobian without considering base offset
 int serialArm::CalcJacobian(const std::vector<double> &kine_para,
-                        Pose *p,
-                        Eigen::MatrixXd * Jp_t,
-                        Eigen::MatrixXd * Jp_r,
-                        const bool reduction) {
-    // Jp is 6 * kine_para_.size() matrix
-    if (!p || !Jp_t || !Jp_r) {
-        std::ostringstream strs;
-        strs << GetName() << ":" << "input pose, Jp, Jj pointers are null in " << __FUNCTION__
-                << " at line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return -ERR_INPUT_POINTER_NULL;
-    }
+            Pose &p,
+            Eigen::MatrixXd & Jp_t,
+            Eigen::MatrixXd & Jp_r,
+            const bool reduction) {
+  // Jp is 6 * kine_para_.size() matrix
     const int tol_size = 5 * DoF_;
     if (kine_para.size() == tol_size) {
-       if (Jp_t->rows() !=3 || Jp_t->cols() != tol_size) {
+       if (Jp_t.rows() !=3 || Jp_t.cols() != tol_size) {
          // if size is not match, we have to resize to the correct size
-         Jp_t->resize(3, tol_size);
+         Jp_t.resize(3, tol_size);
        }
-       if (Jp_r->rows() !=3 || Jp_r->cols() != tol_size) {
+       if (Jp_r.rows() !=3 || Jp_r.cols() != tol_size) {
          // if size is not match, we have to resize to the correct size
-         Jp_r->resize(3, tol_size);
+         Jp_r.resize(3, tol_size);
        }
        Frame bt; // default to identity if reduction true
        if (!reduction) {
@@ -713,12 +368,12 @@ int serialArm::CalcJacobian(const std::vector<double> &kine_para,
           Vec t = bt.getTranslation();
           Vec t_col2 = r.UnitX();
           Vec t_col1 = t * t_col2;
-          Jp_t->col(5 * i) = t_col1.ToEigenVec();      // 1rd column is dalpha
-          Jp_t->col(5 * i + 1) = t_col2.ToEigenVec();   // 2rd column is da
+          Jp_t.col(5 * i) = t_col1.ToEigenVec();      // 1rd column is dalpha
+          Jp_t.col(5 * i + 1) = t_col2.ToEigenVec();   // 2rd column is da
           
-          Jp_r->col(5 * i) = t_col2.ToEigenVec();
+          Jp_r.col(5 * i) = t_col2.ToEigenVec();
           Eigen::Vector3d v(0,0,0);
-          Jp_r->col(5 * i + 1) = v;
+          Jp_r.col(5 * i + 1) = v;
            // start computing Jacobian
           Rotation r1 = Rotation::RotX(alpha_tmp[i]);
           // combined trans. of alpha_i and a_i
@@ -730,12 +385,12 @@ int serialArm::CalcJacobian(const std::vector<double> &kine_para,
           t = bt.getTranslation();
           t_col2 = r.UnitZ();
           t_col1 = t * t_col2;
-          Jp_t->col(5 * i + 2) = t_col1.ToEigenVec();  // 3rd column is dtheta_i
-          Jp_t->col(5 * i + 3) = t_col2.ToEigenVec();  // 4th column is dd_i
+          Jp_t.col(5 * i + 2) = t_col1.ToEigenVec();  // 3rd column is dtheta_i
+          Jp_t.col(5 * i + 3) = t_col2.ToEigenVec();  // 4th column is dd_i
           
-          Jp_r->col(5 * i + 2) = t_col2.ToEigenVec();
+          Jp_r.col(5 * i + 2) = t_col2.ToEigenVec();
           //Eigen::Vector3d v(0,0,0);
-          Jp_r->col(5 * i + 3) = v;
+          Jp_r.col(5 * i + 3) = v;
 
           Rotation r2  = Rotation::RotZ(theta_tmp[i]);
           Frame f2(r2, Vec(0, 0, d_tmp[i]));
@@ -745,8 +400,8 @@ int serialArm::CalcJacobian(const std::vector<double> &kine_para,
           t = bt.getTranslation();
           t_col2 = r.UnitY();
           t_col1 = t * t_col2;
-          Jp_t->col(5 * i + 4) = t_col1.ToEigenVec();  // 5rd column is dbeta_i
-          Jp_r->col(5 * i + 4) = t_col2.ToEigenVec();
+          Jp_t.col(5 * i + 4) = t_col1.ToEigenVec();  // 5rd column is dbeta_i
+          Jp_r.col(5 * i + 4) = t_col2.ToEigenVec();
           Rotation r3  = Rotation::RotY(beta_tmp[i]);
           Frame f3(r3, Vec(0, 0, 0));
           bt = bt * f3;
@@ -760,9 +415,9 @@ int serialArm::CalcJacobian(const std::vector<double> &kine_para,
        // plus joint displacement
        UpdateConfigTurn(theta_tmp, d_tmp, &branchFlags, &jointTurns);
 
-       p->setFrame(bt);
-       p->setBranchFlags(branchFlags);
-       p->setJointTurns(jointTurns);
+      p.setFrame(bt);
+      p.setBranchFlags(branchFlags);
+      p.setJointTurns(jointTurns);
     } else {
         std::ostringstream strs;
         strs << GetName() << ":" << "input kine_parameters has dimension not equal to 5 * DoF in "

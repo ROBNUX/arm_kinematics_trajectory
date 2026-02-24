@@ -17,76 +17,40 @@ namespace kinematics_lib {
 class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
  public:
   Quattro_4();
-  Quattro_4(const Eigen::VectorXd &parameters);
 
-  /*
-   * set geometry parameters
-   * @param parameters, the vector of parameters that characterize
-   * the kinematic model
-   */
-  void SetGeometry(const Eigen::VectorXd &parameters) override;
-  //                 const std::vector<int>  &branchFlags);
-  /*
-   * Calculate forward position kinematics, from
-   * joint coordinates to cartesian coordinates.
-   *
-   * @param q_in input joint coordinates position
-   * @param p: pointer to pose
-   *
-   * @return < 0 (error code) when something went wrong
-   *
-   *
-   */
+  void SetGeometry(const Eigen::VectorXd& parameters) override;
 
-  int JntToCart(const Eigen::VectorXd &q, Pose& p) override;
+  int JntToCart(const Eigen::VectorXd& q, Pose& p) override;
 
-  /**
-   * Calculate forward position and velocity kinematics, from
-   * joint coordinates to cartesian coordinates.
-   *
-   * @param q_in input joint coordinates
-   * @param qdot_in input joint velocity
-   * @param p, v, output cartesian position and velocity
-   *
-   * @return < 0 (error code) if something went wrong
-   *
-   *
-   */
-  int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot, Pose& p,
+  int JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot, Pose& p,
                 Twist& v) override;
 
-  /*
-   * Calculate forward position, velocity and accelaration
-   * kinematics, from joint coordinates to cartesian coordinates
-   *
-   * @param q_in: input joint coordinates
-   * @param qdot_in: input joint vel
-   * @param qddot_in: input joint acc
-   * @param p, v, a: output cartesian position, velocity
-   * and acceleration
-   *
-   * @return if < 0 something went wrong
-   */
-  int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
-                const Eigen::VectorXd &qddot, Pose& p, Twist& v,
+  int JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
+                const Eigen::VectorXd& qddot, Pose& p, Twist& v,
                 Twist& a) override;
 
-  int CartToJnt(const Pose &p, Eigen::VectorXd& q) override;
+  int CartToJnt(const Pose& p, Eigen::VectorXd& q) override;
 
-  int CartToJnt(const Pose &p, const Twist &v, Eigen::VectorXd& q,
+  int CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
                 Eigen::VectorXd& qdot) override;
 
-  int CartToJnt(const Pose &p, const Twist &v, const Twist &a,
+  int CartToJnt(const Pose& p, const Twist& v, const Twist& a,
                 Eigen::VectorXd& q, Eigen::VectorXd& qdot,
-                Eigen::VectorXd *qddot) override;
-  // compute other passive joints
+                Eigen::VectorXd& qddot) override;
+
   int CalcPassive(const Eigen::VectorXd &q, const Pose &p,
-                  Eigen::VectorXd *qpassive) override;
+                  Eigen::VectorXd& qpassive) override;
+
+  int CalcJacobian(const std::vector<double> &kine_para,
+                    Pose& p,
+                    Eigen::MatrixXd& Jp_t,
+                    Eigen::MatrixXd& Jp_r,
+                    const bool reduction =false) override;
 
   //! get branchFlags_
-  std::vector<int> GetBranchFlags() const { return branchFlags_; }
+  // std::vector<int> GetBranchFlags() const { return branchFlags_; }
   //! get turns
-  std::vector<int> GetJntTurns() const { return jointTurns_; }
+  // std::vector<int> GetJntTurns() const { return jointTurns_; }
   //! get name
   virtual std::string GetName() const { return std::string("Quattro_4"); }
 
@@ -121,9 +85,7 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   double a_b1_;
   // extra offset angle of large arm because of c1_
   double delta1_;
-  // diff between static/moving platform radius
-  // double diff_radius_;
-  // branch flags
+
   // there are two branch flags here
   // it picks which root one-by-one until finding the correct solution in
   // possibly up to 16 roots, in fact, we have to go through all roots to verify
@@ -151,9 +113,9 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   //@lower_arm_length: the length of the passive parallelogram
   //@move_platform_length: the length of the link linking lower limb tips (2,3)
   // or tips (1,4)
-  int FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
-                         const Vec &B4, const double &lower_arm_length,
-                         const double &move_platform_length, Pose *pos);
+ int FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
+                        const Vec &B4, const double &lower_arm_length,
+                        const double& move_platform_length, Pose& pos);
 };
 
 }  // namespace kinematics_lib
