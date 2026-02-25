@@ -55,7 +55,7 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    const bool reduction =false) override;
+                    bool reduction =false) override;
 
   /*
    * @brief update the DH parameters based upon the joint feedback, for example, 
@@ -84,10 +84,24 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
                                   std::vector<int>&  jointTurns) const;
     
     
-   int CalcPassive(const std::vector<double> &q,
-                           const Pose &p,
-                           Eigen::VectorXd& qpassive) override;
+   int CalcPassive(const Eigen::VectorXd& q,
+                   const Pose& p,
+                   Eigen::VectorXd& qpassive) override;
 
+  //! a submatrix of the full Jacobian(for calib) that corresponds to 
+   // robot usual jacobian
+   virtual bool PickSubJacobian(const Eigen::MatrixXd& Jp_t,
+                                const Eigen::MatrixXd& Jp_r,
+                                Eigen::MatrixXd& Js_t,
+                                Eigen::MatrixXd& Js_r,
+                                bool reduction=false);  // whether we pick reduction upto subgroup only
+
+
+   // given trans and euler angle error, pick a sub error vector matching robot model, and return the aboslute error norm
+   virtual double  PickCartErr(const Eigen::Vector3d& errT,
+                               const Eigen::Vector3d& errR, 
+                               Eigen::VectorXd& b,
+                               bool reduction = false);
 
  protected:
   // All following DH parameters are follow Craig's DH convention

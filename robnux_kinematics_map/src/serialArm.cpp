@@ -119,7 +119,6 @@ int serialArm::JntToCart(const Eigen::VectorXd& q,
                      const Eigen::VectorXd& qdot,
                      Pose& p, Twist& v) {
     std::ostringstream strs;
-    }
     if (!initialized_) {
       strs.str("");
       strs << GetName() << ":" << "Scara geometric parameters are not initialized"
@@ -168,30 +167,34 @@ int serialArm::JntToCart(const Eigen::VectorXd& q,
     // picking submatrix of Jp_t and Jp_r, and then multiplying qdot
     // to obtain twist
     Eigen::MatrixXd Mt(3, DoF_), Mr(3, DoF_);
-    if (PickSubJacobian(Jp_t, Jp_r, &Mt, &Mr)) {
-      Eigen::VectorXd vdot(DoF_);
-      StdVec2EigenVec(qdot, &vdot);
-      Eigen::Vector3d gvt = Mt * vdot ;
-      Eigen::Vector3d gvr = Mr * vdot;
-      v->setLinearVel(Vec(gvt(0), gvt(1), gvt(2)));
-      v->setAngularVel(Vec(gvr(0), gvr(1), gvr(2)));
+    if (PickSubJacobian(Jp_t, Jp_r, Mt, Mr)) {
+      Eigen::Vector3d gvt = Mt * qdot ;
+      Eigen::Vector3d gvr = Mr * qdot;
+      v.setLinearVel(Vec(gvt(0), gvt(1), gvt(2)));
+      v.setAngularVel(Vec(gvr(0), gvr(1), gvr(2)));
       return 0;
     }
     return -1;
 }
 
-int serialArm::JntToCart(const std::vector<double> &q,
-                     const std::vector<double> &qdot,
-                     const std::vector<double> &qddot,
+int serialArm::JntToCart(const Eigen::VectorXd& q,
+                     const Eigen::VectorXd& qdot,
+                     const Eigen::VectorXd& qddot,
                      Pose& p, Twist& v, Twist& a) {
-    return 0;
+    std::ostringstream strs;
+    strs.str("");
+    strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
+         << " children class, in "
+         << __FUNCTION__ << " line " << __LINE__ << std::endl;
+    LOG_ALARM(strs);
+    return -1;
     
 }
 
 // nominal velocity IK
-int serialArm::CartToJnt(const Pose &p, const Twist &v,
-              Eigen::VectorXd &q,
-              Eigen::VectorXd &qdot) {
+int serialArm::CartToJnt(const Pose& p, const Twist& v,
+              Eigen::VectorXd& q,
+              Eigen::VectorXd& qdot) {
    std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
@@ -213,33 +216,26 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
       return -ERR_ROB_DEFAULT_IK_NOT_CANO;
     }
     // first compute position IK into a std::vector, then convert to Eigen
-    std::vector<double> q_std;
-    int ret = CartToJnt(p, q_std);
+    int ret = CartToJnt(p, q);
     if (ret < 0) {
       return ret;
     }
-    // convert to Eigen
-    StdVec2EigenVec(q_std, &q);
     if (qdot.size() != DoF_) {
       qdot.resize(DoF_);
     }
     // need to compute the Jacobian
-    std::vector<double> a_tmp, alpha_tmp, beta_tmp, d_tmp, theta_tmp;
+    Eigen::VectorXd a_tmp, alpha_tmp, beta_tmp, d_tmp, theta_tmp;
     a_tmp = a_;
     alpha_tmp = alpha_;
-    beta_tmp = beta_;
     d_tmp = d_;
     theta_tmp = theta_;
-    Eigen::VectorXd qv;
-    StdVec2EigenVec(q_std, &qv);
-    UpdateDH(qv, theta_tmp, d_tmp); 
-    std::vector<double> kine_para;
-    kine_para.insert(kine_para.end(), alpha_tmp.begin(), alpha_tmp.end());
-    kine_para.insert(kine_para.end(), a_tmp.begin(), a_tmp.end());
-    kine_para.insert(kine_para.end(), theta_tmp.begin(), theta_tmp.end());
-    kine_para.insert(kine_para.end(), d_tmp.begin(), d_tmp.end());
-    kine_para.insert(kine_para.end(), beta_tmp.begin(), beta_tmp.end());
-    
+    UpdateDH(q, theta_tmp, d_tmp);
+    Eigen::VectorXd kine_para(4 * DoF_);
+    kine_para.segment(0, DoF_) = alpha_tmp;
+    kine_para.segment(DoF_, DoF_) = a_tmp;
+    kine_para.segment(2 * DoF_, DoF_) = theta_tmp;
+    kine_para.segment(3 * DoF_, DoF_) = d_tmp;
+
     Twist v1 = defaultBaseOff_.Inverse() * v;
 
     Pose tmp_p;
@@ -253,7 +249,7 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
     Eigen::MatrixXd M;
     Eigen::VectorXd b;
     Eigen::MatrixXd Js_t, Js_r;   
-    PickSubJacobian(Jp_t, Jp_r, &Js_t, &Js_r, true);
+    PickSubJacobian(Jp_t, Jp_r, Js_t, Js_r, true);
 
     size_t rowTrans = Js_t.rows();
     size_t  rowRot = Js_r.rows();
@@ -267,24 +263,23 @@ int serialArm::CartToJnt(const Pose &p, const Twist &v,
     }
     double det = M.determinant();
     if (fabs(det) < K_EPSILON) {
-        std::ostringstream strs;
+        strs.str("");
         strs << GetName() <<  " is singular, can not compute IK "
               << " in function "
               << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+        LOG_ERROR(strs);
         return -ERR_ROB_JACOBIAN_IK_SINGULAR;
     }
     Vec t_v = v1.getLinearVel();
     Vec t_w = v1.getAngularVel();
     double spdNorm = PickCartErr(t_v.ToEigenVec(),
                                  t_w.ToEigenVec(), 
-                                  &b, true);
-    Eigen::VectorXd qdot_tmp = M.inverse() * b;
-    EigenVec2StdVec(qdot_tmp, qdot);
+                                  b, true);
+    qdot = M.inverse() * b;
     return 0;
 }
 
-// position-only IK (default not implemented for generic serialArm)
-int serialArm::CartToJnt(const Pose &p, std::vector<double> &q) {
+int serialArm::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
   std::ostringstream strs;
   strs.str("");
   strs << GetName() << ": default position IK not implemented for serialArm in " << __FUNCTION__
@@ -293,10 +288,10 @@ int serialArm::CartToJnt(const Pose &p, std::vector<double> &q) {
   return -ERR_ROB_DEFAULT_IK_NOT_CANO;
 }
 
-double serialArm::PickCartErr(const Eigen::Vector3d &errT,
-                                           const Eigen::Vector3d &errR, 
-                                           Eigen::VectorXd *b,
-                                           const bool reduction) {
+double serialArm::PickCartErr(const Eigen::Vector3d& errT,
+                              const Eigen::Vector3d& errR, 
+                              Eigen::VectorXd& b,
+                              bool reduction) {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
@@ -306,10 +301,10 @@ double serialArm::PickCartErr(const Eigen::Vector3d &errT,
     return -1.0;
 }
 
-void  serialArm::UpdateConfigTurn(const std::vector<double> & theta,
-                                  const std::vector<double> &d,
-                                  std::vector<int>  *branchFlags,
-                                  std::vector<int>  *jointTurns) const {
+void  serialArm::UpdateConfigTurn(const Eigen::VectorXd& theta,
+                                  const Eigen::VectorXd& d,
+                                  std::vector<int>& branchFlags,
+                                  std::vector<int>& jointTurns) const {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
@@ -327,11 +322,11 @@ int serialArm::CartToJnt(const Pose &p, const Twist& v, const Twist& a,
 }
 
 // nominal Jacobian without considering base offset
-int serialArm::CalcJacobian(const std::vector<double> &kine_para,
+int serialArm::CalcJacobian(const Eigen::VectorXd& kine_para,
             Pose &p,
             Eigen::MatrixXd & Jp_t,
             Eigen::MatrixXd & Jp_r,
-            const bool reduction) {
+            bool reduction) {
   // Jp is 6 * kine_para_.size() matrix
     const int tol_size = 5 * DoF_;
     if (kine_para.size() == tol_size) {
