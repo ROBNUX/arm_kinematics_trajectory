@@ -131,14 +131,15 @@ class KINEMATICS_API BaseKinematicMap {
     * @param p, the pose of the end-effector
     * @param Jp_t, the output translational part of the Jacobian matrix
     * @param Jp_r, the output rotational part of the Jacobian matrix
-    * @param reduction, whether we want to reduce the Jacobian matrix by removing the columns corresponding to passive joints, default is false
+    * @param world_jac, whether we want to cal. the base Jacobian matrix or world jacobian,
+    *  default to be base jacobian 
     * @return if < 0 something went wrong
    */
   virtual int CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    const bool reduction =false) = 0;
+                    bool world_jac = false) = 0;
 
   /*
    * @brief Calculate the passive joint angles for visualization purpose (e.g.

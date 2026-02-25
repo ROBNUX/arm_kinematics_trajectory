@@ -37,7 +37,7 @@ class KINEMATICS_API QuattroK : public BaseKinematicMap {
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    const bool reduction =false) override;
+                    bool world_jac =false) override;
   std::string GetName() const { return std::string("QuattroK"); }
 
  private:

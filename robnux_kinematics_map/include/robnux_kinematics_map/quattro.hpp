@@ -35,7 +35,7 @@ class KINEMATICS_API Quattro : public BaseKinematicMap {
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    const bool reduction =false) override;
+                    bool world_jac =false) override;
   //! get name
   virtual std::string GetName() const { return std::string("Quattro"); }
 

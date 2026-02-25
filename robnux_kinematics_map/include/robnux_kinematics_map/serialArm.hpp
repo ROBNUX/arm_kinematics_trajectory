@@ -55,7 +55,7 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    bool reduction =false) override;
+                    bool world_jac = false) override;
 
   /*
    * @brief update the DH parameters based upon the joint feedback, for example, 
