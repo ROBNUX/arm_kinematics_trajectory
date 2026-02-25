@@ -10,55 +10,14 @@ namespace kinematics_lib {
 class KINEMATICS_API QuattroK : public BaseKinematicMap {
  public:
   QuattroK();
-  QuattroK(const Eigen::VectorXd &parameters);
-
-  /*
-   * set geometry parameters
-   * @param parameters, the vector of parameters that characterize
-   * the kinematic model
-   */
+  
   void SetGeometry(const Eigen::VectorXd &parameters) override;
-  /*
-   * Calculate forward position kinematics, from
-   * joint coordinates to cartesian coordinates.
-   *
-   * @param q_in input joint coordinates position
-   * @param p: pointer to pose
-   *
-   * @return < 0 (error code) when something went wrong
-   *
-   *
-   */
 
   int JntToCart(const Eigen::VectorXd &q, Pose& p) override;
 
-  /**
-   * Calculate forward position and velocity kinematics, from
-   * joint coordinates to cartesian coordinates.
-   *
-   * @param q_in input joint coordinates
-   * @param qdot_in input joint velocity
-   * @param p, v, output cartesian position and velocity
-   *
-   * @return < 0 (error code) if something went wrong
-   *
-   *
-   */
   int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot, Pose& p,
                 Twist& v) override;
 
-  /*
-   * Calculate forward position, velocity and accelaration
-   * kinematics, from joint coordinates to cartesian coordinates
-   *
-   * @param q_in: input joint coordinates
-   * @param qdot_in: input joint vel
-   * @param qddot_in: input joint acc
-   * @param p, v, a: output cartesian position, velocity
-   * and acceleration
-   *
-   * @return if < 0 something went wrong
-   */
   int JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
                 const Eigen::VectorXd &qddot, Pose& p, Twist& v,
                 Twist& a) override;
@@ -71,16 +30,15 @@ class KINEMATICS_API QuattroK : public BaseKinematicMap {
   int CartToJnt(const Pose &p, const Twist &v, const Twist &a,
                 Eigen::VectorXd& q, Eigen::VectorXd& qdot,
                 Eigen::VectorXd& qddot) override;
-  // compute other passive joints
+
   int CalcPassive(const Eigen::VectorXd &q, const Pose &p,
                   Eigen::VectorXd& qpassive) override;
-
-  //! get branchFlags_
-  std::vector<int> GetBranchFlags() const { return branchFlags_; }
-  //! get turns
-  std::vector<int> GetJntTurns() const { return jointTurns_; }
-  //! get name
-  virtual std::string GetName() const { return std::string("QuattroK"); }
+  int CalcJacobian(const Eigen::VectorXd& kine_para,
+                    Pose& p,
+                    Eigen::MatrixXd& Jp_t,
+                    Eigen::MatrixXd& Jp_r,
+                    const bool reduction =false) override;
+  std::string GetName() const { return std::string("QuattroK"); }
 
  private:
   // static platform radius
@@ -118,4 +76,4 @@ class KINEMATICS_API QuattroK : public BaseKinematicMap {
 };
 
 }  // namespace kinematics_lib
-#endif /* KINEMATICS_LIB_QUATTRO_HPP_ */
+#endif /* KINEMATICS_LIB_QUATTROK_HPP_ */

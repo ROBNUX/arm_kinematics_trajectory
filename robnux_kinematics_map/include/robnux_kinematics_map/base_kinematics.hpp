@@ -134,7 +134,7 @@ class KINEMATICS_API BaseKinematicMap {
     * @param reduction, whether we want to reduce the Jacobian matrix by removing the columns corresponding to passive joints, default is false
     * @return if < 0 something went wrong
    */
-  virtual int CalcJacobian(const std::vector<double> &kine_para,
+  virtual int CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,

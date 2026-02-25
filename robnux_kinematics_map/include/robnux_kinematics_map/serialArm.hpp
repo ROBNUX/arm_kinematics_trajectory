@@ -19,7 +19,7 @@ namespace kinematics_lib {
    
 class KINEMATICS_API serialArm : public BaseKinematicMap {
  public:
-  serialArm();
+  serialArm(size_t DoF = 6);
 
   void SetGeometry(const Eigen::VectorXd& kine_para) override;
 
@@ -51,7 +51,7 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
                          Eigen::VectorXd& qdot,
                          Eigen::VectorXd& qddot) override;
 
-   int CalcJacobian(const std::vector<double> &kine_para,
+   int CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
@@ -67,7 +67,7 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
    */ 
    virtual void UpdateDH(const Eigen::VectorXd& q,
                          Eigen::VectorXd& theta,
-                        Eigen::VectorXd& d);
+                         Eigen::VectorXd& d);
 
    /*
     * @brief update the configuration turn and branch flags based upon the joint feedback, 

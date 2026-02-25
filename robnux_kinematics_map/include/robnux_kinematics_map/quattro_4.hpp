@@ -41,18 +41,13 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   int CalcPassive(const Eigen::VectorXd &q, const Pose &p,
                   Eigen::VectorXd& qpassive) override;
 
-  int CalcJacobian(const std::vector<double> &kine_para,
+  int CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
                     const bool reduction =false) override;
 
-  //! get branchFlags_
-  // std::vector<int> GetBranchFlags() const { return branchFlags_; }
-  //! get turns
-  // std::vector<int> GetJntTurns() const { return jointTurns_; }
-  //! get name
-  virtual std::string GetName() const { return std::string("Quattro_4"); }
+  std::string GetName() const { return std::string("Quattro_4"); }
 
  private:
   // static platform radius
@@ -106,16 +101,16 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   std::vector<double> polyCoef_;
 
   //! solve roots of 8th order polynomial
-  int SolvePolyRoots(std::vector<double> *solution);
+  int SolvePolyRoots(std::vector<double>& solution);
   //! compute the root of this 8th order polynomial
   //@B1,B2,B3,B4 are tip points of upper limbs while applying offsets of
   // the fixed vectors v_i of moving platform
   //@lower_arm_length: the length of the passive parallelogram
   //@move_platform_length: the length of the link linking lower limb tips (2,3)
   // or tips (1,4)
- int FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
-                        const Vec &B4, const double &lower_arm_length,
-                        const double& move_platform_length, Pose& pos);
+ int FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
+                        const Vec& B4, const double lower_arm_length,
+                        const double move_platform_length, Pose& pos);
 };
 
 }  // namespace kinematics_lib

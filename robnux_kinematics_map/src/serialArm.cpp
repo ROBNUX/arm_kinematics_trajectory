@@ -1,20 +1,17 @@
-#include "serialArm.hpp"
-#include <common/pose.hpp>
+#include "robnux_kinematics_map/serialArm.hpp"
+#include "robnux_kdl_common/pose.hpp"
 #include <string>
 namespace kinematics_lib {
 
-serialArm::serialArm(const size_t DoF): BaseKinematicMap(DoF, DoF),
+serialArm::serialArm(size_t DoF): BaseKinematicMap(DoF, DoF),
     alpha_(Eigen::VectorXd::Zero(DoF)),
     alpha_c_(alpha_),
     a_(Eigen::VectorXd::Zero(DoF)),
     a_c_(a_),
-    beta_(Eigen::VectorXd::Zero(DoF)),
-    beta_c_(beta_),
     d_(Eigen::VectorXd::Zero(DoF)),
     d_c_(d_),
     theta_(Eigen::VectorXd::Zero(DoF)),
-    theta_c_(theta_),
-    resetCache_(true) {
+    theta_c_(theta_) {
     jnt_names_.resize(DoF);
     for (size_t i=0; i < DoF; i++) {
       jnt_names_[i]="JOINT_" + std::to_string(i) + "_ACT";

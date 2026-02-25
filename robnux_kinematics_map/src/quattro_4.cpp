@@ -573,6 +573,20 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
   return 0;
 }
 
+int Quattro_4::CalcJacobian(const Eigen::VectorXd& kine_para,
+                    Pose& p,
+                    Eigen::MatrixXd& Jp_t,
+                    Eigen::MatrixXd& Jp_r,
+                    const bool reduction) {
+  std::ostringstream strs;
+  strs.str("");
+  strs << "Quattro_4 does not support calculating Jacobian matrix, "
+            << " in function " << __FUNCTION__ << ", line " << __LINE__
+            << std::endl;
+  LOG_ERROR(strs.str());
+  return -38;
+}
+
 int Quattro_4::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
                            Eigen::VectorXd& qpassive) {
   std::ostringstream strs;
@@ -678,10 +692,13 @@ int Quattro_4::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
   return 0;
 }
 
-int Quattro_4::SolvePolyRoots(std::vector<double> *solution) {
-  if (!solution) {
-    std::cout << "input parameter is null in function " << __FUNCTION__
+int Quattro_4::SolvePolyRoots(std::vector<double>& solution) {
+  std::ostringstream strs;
+  if (solution.empty()) {
+    strs.str("");
+    strs << "input parameter is null in function " << __FUNCTION__
               << " at line " << __LINE__ << std::endl;
+    LOG_ERROR(strs.str());
     return -32;
   }
   // check if there are any higher order coefficients are 0,
@@ -738,28 +755,26 @@ int Quattro_4::SolvePolyRoots(std::vector<double> *solution) {
   // largest to smallest
   // first try to use the largest eigen_values
   if (index > 0) {
-    solution->resize(index);
+    solution.resize(index);
     for (int i = 0; i < index; i++) {
-      solution->at(i) = eigen_values(i);
+      solution[i] = eigen_values(i);
     }
   }
   return 0;
 }
 
-int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
-                                  const Vec &B4, const double &lower_arm_length,
-                                  const double &move_platform_length,
-                                  Pose *pos) {
-  if (!pos) {
-    std::cout << "input pos pointer is null in function " << __FUNCTION__
-              << " at line " << __LINE__ << std::endl;
-    return -35;
-  }
+int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
+                                  const Vec& B4, const double lower_arm_length,
+                                  const double move_platform_length,
+                                  Pose& pos) {
+  std::ostringstream strs;
   Vec n1 = B2 - B1;  // limb2 upper arm tip - limb1 uppder arm tip
   double norm_n1 = n1.Norm();
   if (norm_n1 < K_EPSILON) {
-    std::cout << "B1, B2 overlapps in function " << __FUNCTION__ << " and line "
+    strs.str("");
+    strs << "B1, B2 overlapps in function " << __FUNCTION__ << " and line "
               << __LINE__ << std::endl;
+    LOG_ERROR(strs.str());
     return -27;
   }
   n1 = n1 / norm_n1;  // normalize
@@ -767,8 +782,10 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   Vec n2 = B4 - B3;
   double norm_n2 = n2.Norm();
   if (norm_n2 < K_EPSILON) {
-    std::cout << "B1, B2 overlapps in function " << __FUNCTION__ << " and line "
+    strs.str("");
+    strs << "B3, B4 overlapps in function " << __FUNCTION__ << " and line "
               << __LINE__ << std::endl;
+    LOG_ERROR(strs.str());
     return -27;
   }
   n2 = n2 / norm_n2;  // normalize
@@ -776,9 +793,11 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   double norm_n1_sq = norm_n1 * norm_n1;
   double norm_n2_sq = norm_n2 * norm_n2;
   if (csq < norm_n1_sq / 4.0 || csq < norm_n2_sq / 4.0) {
-    std::cout << "parallelogram length is too short to"
+    strs.str("");
+    strs << "parallelogram length is too short to"
               << " close the loop, no FK solution in " << __FUNCTION__
               << " and line " << __LINE__ << std::endl;
+    LOG_ERROR(strs.str());
     return -28;
   }
   double r1 = sqrt(csq - norm_n1_sq / 4.0);
@@ -796,9 +815,11 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   double sg1 = n1.x();
   double cg1 = sqrt(1 - sg1 * sg1);
   if (cg1 < K_EPSILON) {
-    std::cout << "It is singular in computing the basis of circles"
+    strs.str("");
+    strs << "It is singular in computing the basis of circles"
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -28;
   }
   double st1 = -n1.y() / cg1;
@@ -816,9 +837,11 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   double sg2 = n2.x();
   double cg2 = sqrt(1 - sg2 * sg2);
   if (cg2 < K_EPSILON) {
-    std::cout << "It is singular in computing the basis of circles"
+    strs.str("");
+    strs << "It is singular in computing the basis of circles"
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -28;
   }
   double st2 = -n2.y() / cg2;
@@ -836,9 +859,11 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   double s1 = sqrt(matK1[6] * matK1[6] + matK1[7] * matK1[7]);
   double s2 = sqrt(matK2[6] * matK2[6] + matK2[7] * matK2[7]);
   if (s1 < K_EPSILON || s2 < K_EPSILON) {
-    std::cout << "s1 and s2 are close to 0 "
+    strs.str("");
+    strs << "s1 and s2 are close to 0 "
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -29;
   }
   double sta = matK1[6] / s1;
@@ -1048,14 +1073,16 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
   // polyCoef_[0] * t^8 + polyCoef_[1] * t^7 + ... + polyCoef_[7] * t +
   // polyCoef_[8] = 0
   std::vector<double> sol;
-  int ret = SolvePolyRoots(&sol);
+  int ret = SolvePolyRoots(sol);
   if (ret < 0) {
     return ret;
   }
   if (sol.empty()) {
-    std::cout << "Polynomial has no solution using eigen"
+    strs.str("");
+    strs << "Polynomial has no solution using eigen"
               << " in function " << __FUNCTION__ << " at line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -33;
   }
   // sol[0] is sin(alpha')
@@ -1068,9 +1095,11 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
     // recall root itself is sin(alpha')
     double sbetap = p11 * salphap + p12;
     if ((fabs(salphap) > 1.0) || (fabs(sbetap) > 1.0)) {
-      std::cout << "FK fails because the chosen root of polynomial is > 1"
+      strs.str("");
+      strs << "FK fails because the chosen root of polynomial is > 1"
                 << " in function " << __FUNCTION__ << " at line " << __LINE__
                 << std::endl;
+      LOG_ERROR(strs.str());
       return -34;
     }
     // next branch flag, branchFlags_[1], determines which final solution
@@ -1110,22 +1139,26 @@ int Quattro_4::FindRootsWithEigen(const Vec &B1, const Vec &B2, const Vec &B3,
       has_sol = true;
       break;
     } else {
-      std::cout << "solution check fails, diffP_norm-ee= "
+      strs.str("");
+      strs << "solution check fails, diffP_norm-ee= "
                 << fabs(diffP_norm - ee) << ", yaw=" << yaw << std::endl;
+      LOG_ERROR(strs.str());
     }
   }
 
   if (!has_sol) {
-    std::cout << "FK for quattro 4 fails"
+    strs.str("");
+    strs << "FK for quattro 4 fails"
               << " in function " << __FUNCTION__ << " at line " << __LINE__
               << std::endl;
+    LOG_ERROR(strs.str());
     return -35;
   }
-  pos->setTranslation((p1 + p2) / 2.0);
+  pos.setTranslation((p1 + p2) / 2.0);
   Quaternion quat;
   quat.SetEulerZYX(yaw, 0.0, 0.0);
-  pos->setQuaternion(quat);
-  pos->setBranchFlags(branchFlags_);
+  pos.setQuaternion(quat);
+  pos.setBranchFlags(branchFlags_);
   return 0;
 }
 
