@@ -37,7 +37,7 @@ class KINEMATICS_API Scara : public serialArm {
 
    void UpdateDH(const Eigen::VectorXd& jnt,
                  Eigen::VectorXd& theta,
-                 Eigen::VectorXd& d) const;
+                 Eigen::VectorXd& d) const override;
 
    std::string GetName() const {
        return std::string("Scara");

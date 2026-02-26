@@ -310,25 +310,6 @@ void  SixAxis_1::UpdateConfigTurn(const std::vector<double> & theta,
        branchFlags->at(0) = 0; //  overhead, or left
     }
 }
- /*                                 
-void SixAxis_1::ConvertBranchFlag(const Eigen::VectorXd &inFlag, std::vector<int> *branchFlags) const {
-    std::ostringstream strs;
-    if (!branchFlags || inFlag.size() < 3) {
-        strs.str("");
-        strs << "ConvretBranchFlag fails due to null input pointer or null input flag"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return;
-    }
-    // for scara, there is only 1 branch flag: elbow (up or down)
-    branchFlags->resize(3, eBranchLeft);
-    // cur_pt[7] is the one which holding the branch info
-    // elbow-right=1, elbow-left=0
-    for (size_t i=0; i < 3; i++) {
-        branchFlags->at(i) = inFlag(i) > 0.5 ? 1 : 0;
-    }
-} */
 
 bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd  &Jp_t,
                                 const Eigen::MatrixXd &Jp_r,

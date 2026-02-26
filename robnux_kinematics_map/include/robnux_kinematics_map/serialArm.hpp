@@ -67,7 +67,7 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
    */ 
    virtual void UpdateDH(const Eigen::VectorXd& q,
                          Eigen::VectorXd& theta,
-                         Eigen::VectorXd& d);
+                         Eigen::VectorXd& d) const;
   
   
    /* @brief virtual function for updating actual DH parameters based upon joint feedback

@@ -35,7 +35,7 @@ class KINEMATICS_API singleAxisModule : public serialArm {
 
    void UpdateDH(const Eigen::VectorXd& jnt,
                  Eigen::VectorXd& theta,
-                 Eigen::VectorXd& d) const;
+                 Eigen::VectorXd& d) const override;
 
 
    //! get name

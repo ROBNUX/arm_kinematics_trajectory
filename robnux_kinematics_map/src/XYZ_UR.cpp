@@ -9,12 +9,6 @@ namespace kinematics_lib {
      XYZ = std::make_shared<XYZGantry>();
   }
 
-  XYZ_UR::XYZ_UR(const std::vector<double> &dh_UR, const std::vector<double> &dh_XYZ): BaseKinematicMap(5, 5) {
-     UR = std::make_shared<UJNT>(dh_UR);
-     XYZ = std::make_shared<XYZGantry>(dh_XYZ);
-     initialized_ = true;
-  }
-
 
 
   void XYZ_UR::SetGeometry(const std::vector<double> &kine_para) {
