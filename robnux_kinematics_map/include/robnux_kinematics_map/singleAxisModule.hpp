@@ -3,6 +3,7 @@
 #include "robnux_kinematics_map/serialArm.hpp"
 #include "simple_motion_logger/Logger.h"
 #include "robnux_kdl_common/rotation.hpp"
+#include "robnux_kdl_common/pose.hpp"
 #include "robnux_kdl_common/vec.hpp"
 namespace kinematics_lib {
    
@@ -45,4 +46,4 @@ class KINEMATICS_API singleAxisModule : public serialArm {
 
 }
 
-#endif
+#endif    /* KINEMATICS_LIB_SINGLEAXISMODULE_HPP_ */

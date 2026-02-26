@@ -187,14 +187,33 @@ class KINEMATICS_API BaseKinematicMap {
    * @param baseoff, the vector of default base offset parameters
    * w.r.t. the designated world frame (i.e. from default base to world)
    */
-  virtual void SetDefaultBaseOff(const EigenDRef<Eigen::VectorXd>& baseoff);
+  void SetDefaultBaseOff(const Eigen::VectorXd& baseoff);
                          
   /*
    * @brief get default base offset
    * @param baseoff, the vector of default base offset parameters
    * w.r.t. the designated world frame (i.e. from default base to world)
    */
-  virtual void GetDefaultBaseOff(EigenDRef<Eigen::VectorXd>& baseoff);
+  void GetDefaultBaseOff(Eigen::VectorXd& baseoff);
+
+
+
+  /*
+   * @brief get pitch and backlash for each joint
+   * @param pitch, output pitch vector
+   * @param backlash, output backlash vector
+   */
+  void GetPitchAndBacklash(Eigen::VectorXd& pitch,
+                           Eigen::VectorXd& backlash) const;
+
+  /*
+   * @brief set pitch and backlash for each joint
+   * @param pitch, input pitch vector
+   * @param backlash, input backlash vector
+   */
+  void SetPitchAndBacklash(const Eigen::VectorXd& pitch,
+                           const Eigen::VectorXd& backlash);
+  
                             
 
   /*
@@ -213,6 +232,10 @@ class KINEMATICS_API BaseKinematicMap {
 
   // degree of freedom of end-effector
   size_t DoF_;
+
+
+  //! joint pitch and backLash_
+  Eigen::VectorXd pitch_, backlash_;
 
   //! joint names, for publishing JointState messages used for rviz simulation
   std::vector<std::string> jnt_names_;

@@ -5,7 +5,13 @@ BaseKinematicMap::BaseKinematicMap(const size_t active_dof, const size_t dof)
       DoF_(dof),
       initialized_(false),
       useCalibrated_(false),
-      isDHCalibrated_(false) {}
+      isDHCalibrated_(false) {
+    pitch_.resize(dof);
+    for (size_t i=0; i < dof; i++) {
+        pitch_(i) = 1.0;  // initialized to 1.0 (default)
+    }
+    backlash_ = Eigen::VectorXd::Zero(dof);
+}
 
 BaseKinematicMap::~BaseKinematicMap() {}
 
@@ -30,7 +36,7 @@ void BaseKinematicMap::SetUseCalibrated(const bool useCalibrated) {
 }
 
 void BaseKinematicMap::SetDefaultBaseOff(
-    const EigenDRef<Eigen::VectorXd>& baseoff) {
+    const Eigen::VectorXd& baseoff) {
     std::ostringstream strs;
     if (baseoff.size() != 7) {
       strs.str("");
@@ -53,8 +59,7 @@ void BaseKinematicMap::SetDefaultBaseOff(
     LOG_INFO(strs);
 }
 
-void BaseKinematicMap::GetDefaultBaseOff(
-                EigenDRef<Eigen::VectorXd>& baseoff) {
+void BaseKinematicMap::GetDefaultBaseOff(Eigen::VectorXd& baseoff) {
     std::ostringstream strs;
     
     baseoff = defaultBaseOff_.ToEigenVecQuat();
@@ -63,6 +68,25 @@ void BaseKinematicMap::GetDefaultBaseOff(
          << " getDefaultBaseOff =" << baseoff.transpose() << std::endl;
     LOG_INFO(strs);
 
-  }
+}
 
+
+void BaseKinematicMap::GetPitchAndBacklash(Eigen::VectorXd& pitch,
+                           Eigen::VectorXd& backlash) const {
+  pitch = pitch_;
+  backlash = backlash_;
+}
+
+void BaseKinematicMap::SetPitchAndBacklash(const Eigen::VectorXd& pitch,
+                           const Eigen::VectorXd& backlash) {
+  if (pitch.size() != DoF_) {
+    LOG_ERROR("pitch size does not match DoF");
+    return;
+  }
+  if (backlash.size() != DoF_) {
+    LOG_ERROR("backlash size does not match DoF");
+    return;
+  }
+  pitch_ = pitch;
+  backlash_ = backlash;
 }

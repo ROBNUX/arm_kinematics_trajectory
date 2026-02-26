@@ -1,24 +1,12 @@
-#include "singleAxisModule.hpp"
-#include <common/pose.hpp>
+#include "robnux_kinematics_map/singleAxisModule.hpp"
 namespace kinematics_lib {
 
 singleAxisModule::singleAxisModule(): serialArm(1)  {
 }
 
-// for singleAxisModule, kine_para is 4-DOF, but shall all be 0, except d
-singleAxisModule::singleAxisModule(const std::vector<double> &kine_para): serialArm(kine_para) {
-}
 
-// nominal IK
-int singleAxisModule::CartToJnt(const Pose &pos, std::vector<double> *q) {
+int singleAxisModule::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     std::ostringstream strs;
-    if (!q) {
-      strs.str("");
-      strs << "input joint angle pointer is null in " << __FUNCTION__
-                 << ", at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return -ERR_INPUT_POINTER_NULL;
-    }
     if (!initialized_) {
       strs.str("");
       strs << "singleAxisModule geometric parameters are not initialized"
@@ -36,10 +24,10 @@ int singleAxisModule::CartToJnt(const Pose &pos, std::vector<double> *q) {
 
     Vec p = relTip.getTranslation();
    
-    if (q->size() != DoF_) {
-      q->resize(DoF_);
+    if (q.size() != DoF_) {
+      q.resize(DoF_);
     }
-    q->at(0) = (p.z() - d_[0]) / pitch_(0);
+    q(0) = (p.z() - d_[0]) / pitch_(0);
     return 0;
 }
 
