@@ -528,7 +528,7 @@ int Quattro::CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
-                    const bool reduction) {
+                    bool world_jac) {
   std::ostringstream strs;
   strs.str("");
   strs << "Quattro does not support calculating Jacobian matrix, "

@@ -68,6 +68,19 @@ class KINEMATICS_API serialArm : public BaseKinematicMap {
    virtual void UpdateDH(const Eigen::VectorXd& q,
                          Eigen::VectorXd& theta,
                          Eigen::VectorXd& d);
+  
+  
+   /* @brief virtual function for updating actual DH parameters based upon joint feedback
+      orig_dh=<alpha_1, alpha_2, .., alpha_k, a_1,...a_k, theta_1,...,theta_k, d_1,...,d_k>
+      jnt angles def. depends on specific robot type
+      @param orig_dh, the input original DH parameter vector
+      @param jnt, the input joint feedback
+      @param new_dh, the output updated DH parameter vector
+    */  
+   virtual void UpdateDH(const Eigen::VectorXd& orig_dh,
+                         const Eigen::VectorXd& jnt,
+                         Eigen::VectorXd& new_dh) const;
+  
 
    /*
     * @brief update the configuration turn and branch flags based upon the joint feedback, 

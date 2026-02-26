@@ -1,6 +1,7 @@
 #include "robnux_kinematics_map/serialArm.hpp"
 #include "robnux_kdl_common/pose.hpp"
 #include <string>
+
 namespace kinematics_lib {
 
 serialArm::serialArm(size_t DoF): BaseKinematicMap(DoF, DoF),
@@ -52,6 +53,17 @@ void serialArm::SetGeometry(const Eigen::VectorXd& kine_para) {
 
 void serialArm::UpdateDH(const Eigen::VectorXd& q, 
                          Eigen::VectorXd& theta, Eigen::VectorXd& d) {
+    std::ostringstream strs;
+    strs.str("");
+    strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
+         << " children class (depend on specific kinematic structure), in "
+         << __FUNCTION__ << " line " << __LINE__ << std::endl;
+    LOG_ALARM(strs);
+}
+
+void serialArm::UpdateDH(const Eigen::VectorXd& orig_dh,
+                         const Eigen::VectorXd& jnt,
+                         Eigen::VectorXd& new_dh) const {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
