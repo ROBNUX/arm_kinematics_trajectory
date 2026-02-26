@@ -5,6 +5,7 @@
 #include "robnux_kdl_common/rotation.hpp"
 #include "robnux_kdl_common/pose.hpp"
 #include "robnux_kdl_common/vec.hpp"
+#include "pluginlib/class_list_macros.hpp"
 namespace kinematics_lib {
    
 class KINEMATICS_API SixAxis_1 : public serialArm {

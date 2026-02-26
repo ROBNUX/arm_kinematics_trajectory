@@ -5,11 +5,19 @@
 #include "robnux_kdl_common/rotation.hpp"
 #include "robnux_kdl_common/pose.hpp"
 #include "robnux_kdl_common/vec.hpp"
+#include "pluginlib/class_list_macros.hpp"
+
 namespace kinematics_lib {
 //! UJNT (R-R) modules, which combined with XYZ constitutes the 5-axis module
 class KINEMATICS_API UJNT : public serialArm {
  public:
   UJNT();
+
+  int JntToCart(const Eigen::VectorXd& q,
+                       Pose& p) override;
+
+   int CartToJnt(const Pose &p, Eigen::VectorXd& q) override; 
+
    void  UpdateConfigTurn(const Eigen::VectorXd& theta,
                          const Eigen::VectorXd& d,
                         std::vector<int>&  branchFlags,
@@ -33,6 +41,12 @@ class KINEMATICS_API UJNT : public serialArm {
    void UpdateDH(const Eigen::VectorXd& jnt,
                  Eigen::VectorXd& theta,
                  Eigen::VectorXd& d) const override;
+    
+    int CalcJacobian(const Eigen::VectorXd& kine_para,
+                      Pose& p,
+                      Eigen::MatrixXd& Jp_t,
+                      Eigen::MatrixXd& Jp_r,
+                      bool world_jac = false) override;
 
    //! get name
    virtual std::string GetName() const {

@@ -1,23 +1,14 @@
-#include "sixaxis_1.hpp"
-#include <common/pose.hpp>
+#include "robnux_kinematics_map/sixaxis_1.hpp"
+
+// register plugin
+PLUGINLIB_EXPORT_CLASS(kinematics_lib::SixAxis_1, kinematics_lib::BaseKinematicMap)
 namespace kinematics_lib {
 
 SixAxis_1::SixAxis_1(): serialArm(6)  {
 }
-  
-SixAxis_1::SixAxis_1(const std::vector<double> &kine_para): serialArm(kine_para) {
-}
 
-// nominal IK
-int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
+int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     std::ostringstream strs;
-    if (!q) {
-      strs.str("");
-      strs << "input joint angle pointer is null in " << __FUNCTION__
-                 << ", at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return -ERR_INPUT_POINTER_NULL;
-    }
     if (!initialized_) {
       strs.str("");
       strs << "Scara geometric parameters are not initialized"
@@ -45,8 +36,8 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
        LOG_ERROR(strs);
        return -ERR_ROB_NO_BRANCH_INFO;
     }
-    if (q->size() != DoF_) {
-      q->resize(DoF_);
+    if (q.size() != DoF_) {
+      q.resize(DoF_);
     }
     // this analytic IK is using canonical robot model, for non-canonical 
     // model (e.g., model after calibration) requires using GI-based iteration
@@ -86,7 +77,7 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
 
     double xyNorm = hypot(p.x(), p.y());
     if (not_overhead) {
-		q->at(0) = atan2(p.y(), p.x()) - asin((d_[1] + d_[2]) / xyNorm);  
+		q(0) = atan2(p.y(), p.x()) - asin((d_[1] + d_[2]) / xyNorm);  
 		double xyna1 = sqrt(xyRadius2) - a_[1];
 		wristToJoint2_length = sqrt(sqr(xyna1) + sqr(p.z() - d_[0]));
 		angle_xyz = atan2(xyna1, p.z() - d_[0]);
@@ -95,11 +86,11 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
             return -ERR_ID_IKPOS_UNREACHABLE;
         }
     } else {
-		q->at(0) = atan2(p.y(), p.x()) + asin((d_[1] + d_[2]) / xyNorm);
-        if (q->at(0)<0) {
-            q->at(0) += M_PI;
+		q(0) = atan2(p.y(), p.x()) + asin((d_[1] + d_[2]) / xyNorm);
+        if (q(0)<0) {
+            q(0) += M_PI;
         } else{
-            q->at(0) -= M_PI;
+            q(0) -= M_PI;
         }
 		double xya1 = sqrt(xyRadius2) + a_[1];
 		wristToJoint2_length = hypot(xya1, p.z() - d_[0]);
@@ -118,54 +109,54 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
 
     if (not_overhead) {
         if (!righty) {// if the configuration is blow
-            q->at(1) = angle_xyz + offset_angle;
-            q->at(2) = -M_PI + a2s4_angle;
+            q(1) = angle_xyz + offset_angle;
+            q(2) = -M_PI + a2s4_angle;
         } else {// above
-            q->at(1) = angle_xyz - offset_angle;
-            q->at(2) = M_PI - a2s4_angle;
+            q(1) = angle_xyz - offset_angle;
+            q(2) = M_PI - a2s4_angle;
         } 
     } else { // overhead
         if (!righty) {// if the configuration is below
-            q->at(1) = -angle_xyz + offset_angle;
-            q->at(2) = -M_PI + a2s4_angle;
+            q(1) = -angle_xyz + offset_angle;
+            q(2) = -M_PI + a2s4_angle;
         } else { // above
-            q->at(1) = -angle_xyz - offset_angle;
-            q->at(2) = M_PI - a2s4_angle;
+            q(1) = -angle_xyz - offset_angle;
+            q(2) = M_PI - a2s4_angle;
         }
     }
 	double s4_offset = atan(a_[3]/d_[3]); //atan2(a3, s4); , a bug here, we need to make sure s4_offset is <90 degree  
-    q->at(2) -= s4_offset;
+    q(2) -= s4_offset;
     
 
     std::vector<int>  jointTurns;
     pos.getJointTurns(&jointTurns);
     for (size_t i=0; i < 3; i++) {
          // note sometimes, joint 0 could be running more than [-pi, pi]
-         double turn = std::floor(q->at(i) / (2 * M_PI));
-         double tmp_q = q->at(i) - turn * 2 * M_PI;
+         double turn = std::floor(q(i) / (2 * M_PI));
+         double tmp_q = q(i) - turn * 2 * M_PI;
          // then make sure [-PI, PI]
          // to have 0 turn here
         if (tmp_q > M_PI) {
           turn += 1;
         }
         // q->at(3) -= jointTurns3 * 2 * PI;
-        q->at(i) += (jointTurns[i] - turn) * 2 * M_PI;  // recall only joint 3 might moving more than 1 turn
+        q(i) += (jointTurns[i] - turn) * 2 * M_PI;  // recall only joint 3 might moving more than 1 turn
         if (i!=1 && i!=2) {  // because these two joints, we calculated already takein into account the joint initial offset
-          q->at(i) -= theta_[i];
+          q(i) -= theta_[i];
         }
     }
 
-    q->at(1) -= (theta_[1] + M_PI / 2.0);
-    q->at(2) -= (theta_[2] - M_PI / 2.0);
+    q(1) -= (theta_[1] + M_PI / 2.0);
+    q(2) -= (theta_[2] - M_PI / 2.0);
 
 
-    q->at(3) = 0 - theta_[3];
-    q->at(4) = 0 - theta_[4];
-    q->at(5) = 0 - theta_[5];
+    q(3) = 0 - theta_[3];
+    q(4) = 0 - theta_[4];
+    q(5) = 0 - theta_[5];
 
     // FK with current *q
     Pose tmp;
-    JntToCart(*q, &tmp);
+    JntToCart(q, tmp);
     Rotation r=tmp.getRotation();
     Rotation wristRotation = r.Inverse() * R;
     double alpha, beta, gamma;
@@ -173,40 +164,40 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
 
     if (wristState) {  // non-flip
        if (beta > 0) {
-          q->at(3) = alpha;
-          q->at(4) = beta;
-          q->at(5) = gamma;
+          q(3) = alpha;
+          q(4) = beta;
+          q(5) = gamma;
        } else {
-          q->at(4) = -beta;
+          q(4) = -beta;
           // both can are right solutions , we use the one that our in math range             
           if (alpha > 0){ 
-            q->at(3) = alpha - M_PI;
+            q(3) = alpha - M_PI;
           } else {
-            q->at(3) = alpha + M_PI;
+            q(3) = alpha + M_PI;
           }    
           if (gamma > 0){       
-            q->at(5) = gamma - M_PI;
+            q(5) = gamma - M_PI;
           } else {   
-            q->at(5) = gamma + M_PI;
+            q(5) = gamma + M_PI;
           }       
        }
     } else {  // flip
        if (beta < 0) {
-          q->at(3) = alpha;
-          q->at(4) = beta;
-          q->at(5) = gamma;
+          q(3) = alpha;
+          q(4) = beta;
+          q(5) = gamma;
        } else {
-          q->at(4) = -beta;
+          q(4) = -beta;
           // both can are right solutions , we use the one that our in math range             
           if (alpha > 0){ 
-            q->at(3) = alpha - M_PI;
+            q(3) = alpha - M_PI;
           } else {
-            q->at(3) = alpha + M_PI;
+            q(3) = alpha + M_PI;
           }    
           if (gamma > 0){       
-            q->at(5) = gamma - M_PI;
+            q(5) = gamma - M_PI;
           } else {   
-            q->at(5) = gamma + M_PI;
+            q(5) = gamma + M_PI;
           }       
        } 
     }
@@ -225,40 +216,32 @@ int SixAxis_1::CartToJnt(const Pose &pos, std::vector<double> *q) {
 
     for (size_t i=3; i < DoF_; i++) {
          // note sometimes, joint 0 could be running more than [-pi, pi]
-         double turn = std::floor(q->at(i) / (2 * M_PI));
-         double tmp_q = q->at(i) - turn * 2 * M_PI;
+         double turn = std::floor(q(i) / (2 * M_PI));
+         double tmp_q = q(i) - turn * 2 * M_PI;
          // then make sure [-PI, PI]
          // to have 0 turn here
         if (tmp_q > M_PI) {
           turn += 1;
         }
         // q->at(3) -= jointTurns3 * 2 * PI;
-        q->at(i) += (jointTurns[i] - turn) * 2 * M_PI;  // recall only joint 3 might moving more than 1 turn
+        q(i) += (jointTurns[i] - turn) * 2 * M_PI;  // recall only joint 3 might moving more than 1 turn
         if (i!=1 && i!=2) {  // because these two joints, we calculated already takein into account the joint initial offset
-          q->at(i) -= theta_[i];
+          q(i) -= theta_[i];
         }
     }
     return 0;
 }
 
 
-void  SixAxis_1::UpdateConfigTurn(const std::vector<double> & theta,
-                              const std::vector<double> &d,
-                              std::vector<int>  *branchFlags,
-                              std::vector<int>  *jointTurns) const {
+void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
+                              const Eigen::VectorXd&d,
+                              std::vector<int>& branchFlags,
+                              std::vector<int>& jointTurns) const {
     std::ostringstream strs;
-    if (!branchFlags || !jointTurns) {
-        strs.str("");
-        strs << "Input branchFlags and jointTurns are null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return;
-    }
     // for scara, there is only 1 branch flag: elbow (up or down)
-    branchFlags->resize(3, eBranchLeft);
+    branchFlags.resize(3, eBranchLeft);
     // 4 turn flags, actually only 3 turn flags (because joint 3 is prismatic
-    jointTurns->resize(6, 0);
+    jointTurns.resize(6, 0);
     std::vector<double> q_tmp = theta;
     // jnt 2, 3 converted to angles about vertical "home position"
     q_tmp[1] += M_PI / 2.0;
@@ -267,12 +250,12 @@ void  SixAxis_1::UpdateConfigTurn(const std::vector<double> & theta,
     //strs.str("");
     for (size_t i=0; i < DoF_; i++) {
         //strs << " joint " << i << " = " << q_tmp[i] << ", theta=" << theta_[i];
-        jointTurns->at(i) = std::floor(q_tmp[i] / (2 * M_PI));
-        double tmp_q = q_tmp[i] - jointTurns->at(i) * 2 * M_PI;
+        jointTurns[i] = std::floor(q_tmp[i] / (2 * M_PI));
+        double tmp_q = q_tmp[i] - jointTurns[i] * 2 * M_PI;
         // then make sure [-PI, PI]
         // to have 0 turn here
         if (tmp_q > M_PI) {
-            jointTurns->at(i) += 1;
+            jointTurns[i] += 1;
             tmp_q -= 2 * M_PI;
         }
         q_tmp[i] = tmp_q;
@@ -281,19 +264,19 @@ void  SixAxis_1::UpdateConfigTurn(const std::vector<double> & theta,
             double phi_s4_a3 = atan(a_[3] / d_[3]);
             double qelbow = tmp_q + phi_s4_a3;  // -M_PI/2   (remove -M_PI/2 as qelbow is already about vertical home pose)
             if ((qelbow >= 0 && qelbow < M_PI) || (qelbow >= -2 * M_PI && qelbow< -M_PI)) {
-                branchFlags->at(1) = 1; // above
+                branchFlags[1] = 1; // above
             }
             if ((qelbow < 0 && qelbow>-M_PI) || (qelbow >= M_PI && qelbow < 2 * M_PI)) {
-                branchFlags->at(1) = 0; // below
+                branchFlags[1] = 0; // below
             }
         }
 
         // wrist state
         if (i==4) {
           if (tmp_q <= M_PI && tmp_q >= 0) {   // || (tmp_q >= -2 * M_PI && tmp_q < -M_PI)) {
-              branchFlags->at(2) = 1;  // no flip
+              branchFlags[2] = 1;  // no flip
           } else {
-              branchFlags->at(2) = 0;  // flip
+              branchFlags[2] = 0;  // flip
           }
         }
     }
@@ -305,26 +288,18 @@ void  SixAxis_1::UpdateConfigTurn(const std::vector<double> & theta,
     double xAtFrame1 = a_[1] + a_[2] * sin(q_tmp[1]) + 
                     d_[3] * sin(q_tmp[1] + q_tmp[2]) + a_[3] * cos(q_tmp[1] + q_tmp[2]);
     if (xAtFrame1 >= 0) {
-       branchFlags->at(0) = 1; // no overhead , basic, or right(for mitsubishi)
+       branchFlags[0] = 1; // no overhead , basic, or right(for mitsubishi)
     } else {
-       branchFlags->at(0) = 0; //  overhead, or left
+       branchFlags[0] = 0; //  overhead, or left
     }
 }
 
-bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd  &Jp_t,
-                                const Eigen::MatrixXd &Jp_r,
-                                Eigen::MatrixXd *Js_t,
-                                Eigen::MatrixXd *Js_r,
-                                const bool reduction) {
+bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
+                                const Eigen::MatrixXd& Jp_r,
+                                Eigen::MatrixXd& Js_t,
+                                Eigen::MatrixXd& Js_r,
+                                bool world_jac) {
      std::ostringstream strs;
-     if (!Js_t || !Js_r) {
-        strs.str("");
-        strs << " input pointer is null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-       return false;
-    }
      size_t row_t = Jp_t.rows();
      size_t col_t = Jp_t.cols();
      size_t row_r = Jp_r.rows();
@@ -338,47 +313,15 @@ bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd  &Jp_t,
        return false;
      }
     
-    Js_t->resize(3, 6);
-    Js_r->resize(3, 6);
+    Js_t.resize(3, 6);
+    Js_r.resize(3, 6);
     for (size_t i=0; i < DoF_; i++) {
         // for theta[i] parameters
-        (*Js_t).col(i) = Jp_t.col(5 * i + 2) * pitch_(i);
-        (*Js_r).col(i) = Jp_r.col(5 * i + 2) * pitch_(i);
+        Js_t.col(i) = Jp_t.col(5 * i + 2) * pitch_(i);
+        Js_r.col(i) = Jp_r.col(5 * i + 2) * pitch_(i);
     }      
     return true;
 }
-   
-
-bool SixAxis_1::PickSubJacobianForPara(const Eigen::MatrixXd &Jp_t,
-                                   const Eigen::MatrixXd &Jp_r, 
-                                   Eigen::MatrixXd *Js_t1, 
-                                   Eigen::MatrixXd *Js_r1,
-                                   const bool reduction) {
-     std::ostringstream strs;
-     if (!Js_t1 || !Js_r1) {
-        strs.str("");
-        strs << " input pointer is null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-       return false;
-    }
-    size_t row_t = Jp_t.rows();
-    size_t col_t = Jp_t.cols();
-    size_t row_r = Jp_r.rows();
-    size_t col_r = Jp_r.cols();
-    
-    Js_t1->resize(row_t, col_t);
-    *Js_t1 = Jp_t;
-    Js_r1->resize(row_r, col_r);
-    *Js_r1 = Jp_r;
-    for (size_t i=0; i < DoF_; i++) {
-        // for theta[i] parameters
-        (*Js_t1).col(5 * i + 2) = Jp_t.col(5 * i + 2) * pitch_(i);
-        (*Js_r1).col(5 * i + 2) = Jp_r.col(5 * i + 2) * pitch_(i);
-    }      
-    return true;
-} 
    
 // given trans and euler angle error, pick a sub error vector matching
 // robot model, and return the aboslute error norm
