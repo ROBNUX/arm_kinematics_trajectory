@@ -5,6 +5,7 @@
 #include "robnux_kdl_common/rotation.hpp"
 #include "robnux_kdl_common/pose.hpp"
 #include "robnux_kdl_common/vec.hpp"
+#include "pluginlib/class_list_macros.hpp"
 namespace kinematics_lib {
    
 class KINEMATICS_API XYZGantry : public serialArm {
@@ -23,7 +24,7 @@ class KINEMATICS_API XYZGantry : public serialArm {
                         const Eigen::MatrixXd& Jp_r,
                         Eigen::MatrixXd& Js_t,
                         Eigen::MatrixXd& Js_r,
-                        const bool reduction = false) override;
+                        bool reduction = false) override;
 
     double  PickCartErr(const Eigen::Vector3d& errT,
                         const Eigen::Vector3d& errR, 
@@ -45,4 +46,4 @@ class KINEMATICS_API XYZGantry : public serialArm {
 
 }
 
-#endif
+#endif  /* KINEMATICS_LIB_XYZGantry_HPP_ */

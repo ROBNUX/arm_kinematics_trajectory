@@ -234,7 +234,7 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
 
 
 void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
-                              const Eigen::VectorXd&d,
+                              const Eigen::VectorXd& d,
                               std::vector<int>& branchFlags,
                               std::vector<int>& jointTurns) const {
     std::ostringstream strs;
@@ -322,43 +322,23 @@ bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
     }      
     return true;
 }
-   
-// given trans and euler angle error, pick a sub error vector matching
-// robot model, and return the aboslute error norm
-double  SixAxis_1::PickCartErr(const Eigen::Vector3d &errT,
-                           const Eigen::Vector3d &errR, 
-                           Eigen::VectorXd *b,
-                           const bool reduction) {
-    std::ostringstream strs;
+
+double  SixAxis_1::PickCartErr(const Eigen::Vector3d& errT,
+                           const Eigen::Vector3d& errR, 
+                           Eigen::VectorXd& b,
+                           bool reduction) {
     double val = errT.norm() + errR.norm();
-    if (!b) {
-        strs.str("");
-        strs << " input pointer is null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-    }
-    b->resize(6);
-    b->block(0, 0, 3, 1) = errT;
-    b->block(3, 0, 3, 1) = errR;
+    b.resize(6);
+    b.block(0, 0, 3, 1) = errT;
+    b.block(3, 0, 3, 1) = errR;
     return val;
 }
-   
-   //! virtual function for updating actual DH parameters based upon joint feedback
-   // orig_dh=<alpha_1, alpha_2, .., alpha_k, a_1,...a_k, theta_1,...,theta_k, d_1,...,d_k>
-   // jnt angles def. depends on specific robot type
-void SixAxis_1::UpdateDH(const std::vector<double> &orig_dh,
+
+void SixAxis_1::UpdateDH(const Eigen::VectorXd& orig_dh,
                      const Eigen::VectorXd &jnt,
-                     std::vector<double> *new_dh) const {
+                     Eigen::VectorXd&new_dh) const {
     std::ostringstream strs;
-    if (!new_dh) {
-        strs.str("");
-        strs << " input pointer is null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-    }
-    if (orig_dh.size() != 5 * DoF_ ||  jnt.size() < DoF_) {
+    if (orig_dh.size() != 4 * DoF_ ||  jnt.size() < DoF_) {
         strs.str("");
         strs << " input parameters have wrong size, origin dh size= " << 
              orig_dh.size() << ", jnt size =" << jnt.size()   
@@ -366,27 +346,17 @@ void SixAxis_1::UpdateDH(const std::vector<double> &orig_dh,
                 <<" at line " << __LINE__ << std::endl;
        LOG_ERROR(strs);
     }
-    *new_dh = orig_dh;
+    new_dh = orig_dh;
     for (size_t i=0; i < DoF_; i++) {
-        new_dh->at(2 * DoF_ + i) = orig_dh[2 * DoF_ + i] + jnt(i) * pitch_(i);
+        new_dh(2 * DoF_ + i) = orig_dh(2 * DoF_ + i) + jnt(i) * pitch_(i);
     }
 }
 
-   //! virtual function for updating actual DH parameters based upon joint feedback
-   // Note: alpha, a, theta, d, beta has their initial values, which will be updated
-   // based upon jnt input
-void SixAxis_1::UpdateDH(const Eigen::VectorXd &jnt,
-              std::vector<double> *theta,
-              std::vector<double> *d) const {
+void SixAxis_1::UpdateDH(const Eigen::VectorXd& jnt,
+                         Eigen::VectorXd& theta,
+                         Eigen::VectorXd& d) const {
   std::ostringstream strs;
-  if (!theta || !d) {
-        strs.str("");
-        strs << " input pointer is null"
-                <<" in " << __FUNCTION__
-                <<" at line " << __LINE__ << std::endl;
-       LOG_ERROR(strs);
-  }
-  if (jnt.size() < DoF_ ||  theta->size() != DoF_ || d->size() != DoF_) {
+  if (jnt.size() < DoF_ ||  theta.size() != DoF_ || d.size() != DoF_) {
        strs.str("");
        strs << " input parameters have wrong size "
                 <<" in " << __FUNCTION__
@@ -394,7 +364,7 @@ void SixAxis_1::UpdateDH(const Eigen::VectorXd &jnt,
        LOG_ERROR(strs);
   }
   for (size_t i=0; i < DoF_; i++) {
-    theta->at(i) += jnt(i) * pitch_(i);
+    theta(i) += jnt(i) * pitch_(i);
   }
 }
 

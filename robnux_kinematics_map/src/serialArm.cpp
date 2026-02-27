@@ -32,17 +32,15 @@ void serialArm::SetGeometry(const Eigen::VectorXd& kine_para) {
     }
 
     if (kine_para.size() >= 4 * DoF_) {
-       for (size_t i=0; i < DoF_; i++) {
-          alpha_(i) = kine_para(i);
-          a_(i) = kine_para(DoF_ + i);
-          theta_(i) = kine_para(2 * DoF_ + i);
-          d_(i) = kine_para(3 * DoF_ + i);
-       }
-       alpha_c_ = alpha_;
-       a_c_ = a_;
-       d_c_ = d_;
-       theta_c_ = theta_;
-       initialized_ = true;
+      alpha_ = kine_para.segment(0, DoF_);
+      a_ = kine_para.segment(DoF_, DoF_);
+      theta_ = kine_para.segment(2 * DoF_, DoF_);
+      d_ = kine_para.segment(3 * DoF_, DoF_);
+      alpha_c_ = alpha_;
+      a_c_ = a_;
+      d_c_ = d_;
+      theta_c_ = theta_;
+      initialized_ = true;
     } else {
         strs.str("");
         strs << GetName() << ":" << "input parameters has dimension less than 4 * DoF in "

@@ -7,19 +7,28 @@
 #include "robnux_kdl_common/vec.hpp"
 #include "robnux_kinematics_map/UJNT.hpp"
 #include "robnux_kinematics_map/XYZ.hpp"
+#include "pluginlib/class_list_macros.hpp"
 #include <memory>
 namespace kinematics_lib {
 // separate-mode XYZ + UR
 class KINEMATICS_API XYZ_UR : public BaseKinematicMap {
  public:
-  XYZ_UR();
+   XYZ_UR();
 
-  void SetGeometry(const Eigen::VectorXd& kine_para) override;
+   void SetGeometry(const Eigen::VectorXd& kine_para) override;
   
-  int JntToCart(const Eigen::VectorXd& q,
+   int JntToCart(const Eigen::VectorXd& q,
                        Pose& p) override;
 
    int CartToJnt(const Pose &p, Eigen::VectorXd& q) override; 
+
+   int JntToCart(const Eigen::VectorXd& q,
+                const Eigen::VectorXd& qdot,
+                Pose& p, Twist& v) override;
+        
+   int CartToJnt(const Pose& p, const Twist& v,
+                 Eigen::VectorXd& q,
+                 Eigen::VectorXd& qdot) override;
   
 
 

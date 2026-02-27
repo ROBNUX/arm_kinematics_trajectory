@@ -1,4 +1,7 @@
 #include "robnux_kinematics_map/singleAxisModule.hpp"
+// register plugin
+PLUGINLIB_EXPORT_CLASS(kinematics_lib::singleAxisModule, kinematics_lib::BaseKinematicMap)
+
 namespace kinematics_lib {
 
 singleAxisModule::singleAxisModule(): serialArm(1)  {}
