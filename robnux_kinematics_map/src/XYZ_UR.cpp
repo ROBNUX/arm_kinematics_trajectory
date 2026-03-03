@@ -96,13 +96,8 @@ int XYZ_UR::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
     q.resize(DoF_);
   }
   
-  for (size_t i = 0; i < DoF_; i++) {
-    if (i < XYZ->GetDoF()) {
-        q(i) = XYZ_jnt(i);
-    } else {
-        q(i) = UR_jnt(i - XYZ->GetDoF());
-    }
-  }
+  q.segment(0, 3) = XYZ_jnt;
+  q.segment(3, 2) = UR_jnt;
   return 0;
 }
 
@@ -199,7 +194,7 @@ int XYZ_UR::JntToCart(const Eigen::VectorXd& q,
     return ret;
   }
   Frame fr(pUR.getRotation(), pXYZ.getTranslation());
-  p->setFrame(fr);
+  p.setFrame(fr);
 
   // turns and flags
   std::vector<int>  jntTurns1, jntTurns2, jntTurns;
@@ -260,92 +255,76 @@ int XYZ_UR::CartToJnt(const Pose& p, const Twist& v,
   return 0;
 }
  
-  int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
-                            Pose& p,
-                            Eigen::MatrixXd& Jp_t,  // for XYZ
-                            Eigen::MatrixXd& Jp_r,  // for UR
-                            bool world_jac) {  
-    std::ostringstream strs;
-    if (!initialized_) {
+int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
+                          Pose& p,
+                          Eigen::MatrixXd& Jp_t,  // for XYZ
+                          Eigen::MatrixXd& Jp_r,  // for UR
+                          bool world_jac) {  
+  std::ostringstream strs;
+  if (!initialized_) {
+    strs.str("");
+    strs << GetName() <<  " geometric parameters are not initialized"
+              << " in function "
+              << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+    LOG_ERROR(strs);
+    return -ERR_ROB_PARAM_NOT_INITIALIZED; 
+  }
+  if (kine_para.size() != 4 * DoF_) {
       strs.str("");
-      strs << GetName() <<  " geometric parameters are not initialized"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+      strs << GetName() << ":" << "input kine_parameters has dimension not equal to 5 * DoF in "
+                  << __FUNCTION__ << " line " << __LINE__ << std::endl;
       LOG_ERROR(strs);
-      return -ERR_ROB_PARAM_NOT_INITIALIZED; 
-    }
-    if (kine_para.size() != 4 * DoF_) {
-        strs.str("");
-        strs << GetName() << ":" << "input kine_parameters has dimension not equal to 5 * DoF in "
-                   << __FUNCTION__ << " line " << __LINE__ << std::endl;
-        LOG_ERROR(strs);
-        return -ERR_INPUT_PARA_WRONG_DIM;
-    }
-
-    Eigen::VectorXd alpha(DoF_), a(DoF_), theta(DoF_), d(DoF_);
-    alpha = kine_para.segment(0, DoF_);
-    a = kine_para.segment(DoF_, DoF_);
-    theta = kine_para.segment(2 * DoF_, DoF_);
-    d = kine_para.segment(3 * DoF_, DoF_);
-   
-    Eigen::VectorXd dh_XYZ(4 * 3), dh_UR(4 * 2); 
-    dh_XYZ.segment(0, 3) = alpha.head(3);
-    dh_XYZ.segment(3, 3) = a.head(3);
-    dh_XYZ.segment(6, 3) = theta.head(3);
-    dh_XYZ.segment(9, 3) = d.head(3);
-    dh_UR.segment(0, 2) = alpha.tail(2);
-    dh_UR.segment(2, 2) = a.tail(2);
-    dh_UR.segment(4, 2) = theta.tail(2);
-    dh_UR.segment(6, 2) = d.tail(2);
-
-    Pose pXYZ, pUR;
-    Eigen::MatrixXd Jp_t_XYZ, Jp_r_XYZ;
-    Eigen::MatrixXd Jp_t_UR, Jp_r_UR;
-    int ret = XYZ->CalcJacobian(dh_XYZ, pXYZ, Jp_t_XYZ, Jp_r_XYZ, reduction);
-    if (ret < 0) {
-      return ret;
-    }
-  
-    ret = UR->CalcJacobian(dh_UR, pUR, Jp_t_UR, Jp_r_UR, reduction);
-    if (ret < 0) {
-      return ret;
-    }
-    Frame fr(pUR.getRotation(), pXYZ.getTranslation());
-    p->setFrame(fr);
-    
-    // turns and flags
-    std::vector<int>  jntTurns1, jntTurns2, jntTurns;
-    std::vector<int> ikBranchFlags;
-    // jnt turns vector will be combo of XYZ jnt turns + UR jnt turns
-    pXYZ.getJointTurns(&jntTurns1);
-    pUR.getJointTurns(&jntTurns2);
-    jntTurns.insert(jntTurns.end(), jntTurns1.begin(), jntTurns1.end());
-    jntTurns.insert(jntTurns.end(), jntTurns2.begin(), jntTurns2.end());
-    // BranchFlags will be only for UR robot
-    pUR.getBranchFlags(&ikBranchFlags);
-    p.setBranchFlags(ikBranchFlags);
-    p.setJointTurns(jntTurns);
-    Jp_t = Jp_t_XYZ;
-    Jp_r = Jp_r_UR;
-    return 0;
+      return -ERR_INPUT_PARA_WRONG_DIM;
   }
 
-
+  Eigen::VectorXd alpha(DoF_), a(DoF_), theta(DoF_), d(DoF_);
+  alpha = kine_para.segment(0, DoF_);
+  a = kine_para.segment(DoF_, DoF_);
+  theta = kine_para.segment(2 * DoF_, DoF_);
+  d = kine_para.segment(3 * DoF_, DoF_);
   
+  Eigen::VectorXd dh_XYZ(4 * 3), dh_UR(4 * 2); 
+  dh_XYZ.segment(0, 3) = alpha.head(3);
+  dh_XYZ.segment(3, 3) = a.head(3);
+  dh_XYZ.segment(6, 3) = theta.head(3);
+  dh_XYZ.segment(9, 3) = d.head(3);
+  dh_UR.segment(0, 2) = alpha.tail(2);
+  dh_UR.segment(2, 2) = a.tail(2);
+  dh_UR.segment(4, 2) = theta.tail(2);
+  dh_UR.segment(6, 2) = d.tail(2);
 
+  Pose pXYZ, pUR;
+  Eigen::MatrixXd Jp_t_XYZ, Jp_r_XYZ;
+  Eigen::MatrixXd Jp_t_UR, Jp_r_UR;
+  int ret = XYZ->CalcJacobian(dh_XYZ, pXYZ, Jp_t_XYZ, Jp_r_XYZ, reduction);
+  if (ret < 0) {
+    return ret;
+  }
 
- 
-
+  ret = UR->CalcJacobian(dh_UR, pUR, Jp_t_UR, Jp_r_UR, reduction);
+  if (ret < 0) {
+    return ret;
+  }
+  Frame fr(pUR.getRotation(), pXYZ.getTranslation());
+  p->setFrame(fr);
   
+  // turns and flags
+  std::vector<int>  jntTurns1, jntTurns2, jntTurns;
+  std::vector<int> ikBranchFlags;
+  // jnt turns vector will be combo of XYZ jnt turns + UR jnt turns
+  pXYZ.getJointTurns(&jntTurns1);
+  pUR.getJointTurns(&jntTurns2);
+  jntTurns.insert(jntTurns.end(), jntTurns1.begin(), jntTurns1.end());
+  jntTurns.insert(jntTurns.end(), jntTurns2.begin(), jntTurns2.end());
+  // BranchFlags will be only for UR robot
+  pUR.getBranchFlags(&ikBranchFlags);
+  p.setBranchFlags(ikBranchFlags);
+  p.setJointTurns(jntTurns);
+  Jp_t = Jp_t_XYZ;
+  Jp_r = Jp_r_UR;
+  return 0;
+}
 
-
-  
-
-
- 
-  
-  
- 
 
   
   void XYZ_UR::SetPitchCoef(const Eigen::VectorXd &pitch) {

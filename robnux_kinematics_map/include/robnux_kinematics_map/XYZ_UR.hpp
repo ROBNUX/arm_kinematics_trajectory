@@ -69,6 +69,8 @@ class KINEMATICS_API XYZ_UR : public BaseKinematicMap {
  private:
    //! define two robots
    std::shared_ptr<BaseKinematicMap>  UR, XYZ;
+   // UR base offset w.r.t. designated world frame (i.e. from default base to world)
+   Frame defaultURBaseOff_;
 };
 
 }
