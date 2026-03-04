@@ -23,6 +23,10 @@ bool BaseKinematicMap::isInitialized() const {
     return initialized_;
 }
 
+bool BaseKinematicMap::isDHCalibrated() const {
+    return isDHCalibrated_;
+}
+
 size_t BaseKinematicMap::GetDoF() const { 
     return DoF_; 
 }
@@ -59,7 +63,7 @@ void BaseKinematicMap::SetDefaultBaseOff(
     LOG_INFO(strs);
 }
 
-void BaseKinematicMap::GetDefaultBaseOff(Eigen::VectorXd& baseoff) {
+void BaseKinematicMap::GetDefaultBaseOff(Eigen::VectorXd& baseoff) const {
     std::ostringstream strs;
     
     baseoff = defaultBaseOff_.ToEigenVecQuat();
@@ -89,4 +93,10 @@ void BaseKinematicMap::SetPitchAndBacklash(const Eigen::VectorXd& pitch,
   }
   pitch_ = pitch;
   backlash_ = backlash;
+}
+
+void BaseKinematicMap::ResetCalibration() {
+    isDHCalibrated_ = false;
+}
+
 }

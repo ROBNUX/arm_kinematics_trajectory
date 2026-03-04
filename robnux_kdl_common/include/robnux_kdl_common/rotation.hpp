@@ -189,7 +189,7 @@ class COMMON_API Quaternion {
     return str;
   }
 
-  Eigen::Vector4d ToEigenVec();
+  Eigen::Vector4d ToEigenVec() const;
   //! get a vector from an Eigen::Vector4d
   static Quaternion FromEigenVec(const Eigen::Vector4d& v);
 
@@ -339,13 +339,13 @@ class COMMON_API Rotation {
   Vec UnitZ() const { return Vec(data[2], data[5], data[8]); }
 
   //! transfer a rotation matrix to an Eigen matrix
-  Eigen::Matrix3d ToEigenMat();
+  Eigen::Matrix3d ToEigenMat() const;
 
   //! transfer to an ZYX Euler Eigen Vector
-  Eigen::Vector3d ToEigenVecZYX();
+  Eigen::Vector3d ToEigenVecZYX() const;
 
   //! transfer to an ZYZ Euler Eigen Vector
-  Eigen::Vector3d ToEigenVecZYZ();
+  Eigen::Vector3d ToEigenVecZYZ() const;
 
  private:
   double data[9];

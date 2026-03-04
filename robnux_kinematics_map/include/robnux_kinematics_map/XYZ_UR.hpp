@@ -25,12 +25,18 @@ class KINEMATICS_API XYZ_UR : public BaseKinematicMap {
    int JntToCart(const Eigen::VectorXd& q,
                 const Eigen::VectorXd& qdot,
                 Pose& p, Twist& v) override;
+    
+   int JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
+                const Eigen::VectorXd& qddot, Pose& p, Twist& v,
+                Twist& a) override;
         
    int CartToJnt(const Pose& p, const Twist& v,
                  Eigen::VectorXd& q,
                  Eigen::VectorXd& qdot) override;
   
-
+   int CartToJnt(const Pose &p, const Twist &v, const Twist &a,
+                Eigen::VectorXd& q, Eigen::VectorXd& qdot,
+                Eigen::VectorXd& qddot) override;
 
    int CalcJacobian(const Eigen::VectorXd& kine_para,
                     Pose& p,
@@ -38,29 +44,23 @@ class KINEMATICS_API XYZ_UR : public BaseKinematicMap {
                     Eigen::MatrixXd& Jp_r,
                     bool world_jac = false) override;
 
-  void  UpdateConfigTurn(const Eigen::VectorXd& theta,
-                         const Eigen::VectorXd& d,
-                        std::vector<int>&  branchFlags,
-                        std::vector<int>&  jointTurns) const;
-                                  
-   bool PickSubJacobian(const Eigen::MatrixXd& Jp_t,
-                        const Eigen::MatrixXd& Jp_r,
-                        Eigen::MatrixXd& Js_t,
-                        Eigen::MatrixXd& Js_r,
-                        const bool reduction = false) override;
 
-   double  PickCartErr(const Eigen::Vector3d& errT,
-                      const Eigen::Vector3d& errR, 
-                      Eigen::VectorXd& b,
-                      bool reduction = false) override;
-   
-   void UpdateDH(const Eigen::VectorXd& orig_dh,
-                 const Eigen::VectorXd& jnt,
-                 Eigen::VectorXd& new_dh) const override;
+  int CalcPassive(const Eigen::VectorXd& q, const Pose& p,
+                  Eigen::VectorXd& qpassive) override;
 
-   void UpdateDH(const Eigen::VectorXd& jnt,
-                 Eigen::VectorXd& theta,
-                 Eigen::VectorXd& d) const override;
+  void SetUseCalibrated(const bool useCalibrated);
+
+  void SetDefaultBaseOff(const Eigen::VectorXd& baseoff);
+                         
+  void GetDefaultBaseOff(Eigen::VectorXd& baseoff) const;
+
+  void GetPitchAndBacklash(Eigen::VectorXd& pitch,
+                           Eigen::VectorXd& backlash) const;
+
+  void SetPitchAndBacklash(const Eigen::VectorXd& pitch,
+                           const Eigen::VectorXd& backlash);
+
+  void ResetCalibration() override;
 
    std::string GetName() const {
        return std::string("XYZ_UR");
@@ -69,8 +69,6 @@ class KINEMATICS_API XYZ_UR : public BaseKinematicMap {
  private:
    //! define two robots
    std::shared_ptr<BaseKinematicMap>  UR, XYZ;
-   // UR base offset w.r.t. designated world frame (i.e. from default base to world)
-   Frame defaultURBaseOff_;
 };
 
 }

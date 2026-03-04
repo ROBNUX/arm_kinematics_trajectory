@@ -163,6 +163,19 @@ class KINEMATICS_API BaseKinematicMap {
    */
   bool isInitialized() const;
 
+
+  /*
+    * @brief check if the DH parameters of this kinematic model is calibrated
+    * @return true if calibrated, false otherwise
+   */
+  bool isDHCalibrated() const;
+
+  /*
+   * @brief reset the calibration, i.e. set the calibrated 
+   * parameters to be the same as the canonical parameters
+   */
+  virtual void ResetCalibration();
+
   /*
    * @brief get number of DoFs
    * @return number of DoFs
@@ -194,7 +207,7 @@ class KINEMATICS_API BaseKinematicMap {
    * @param baseoff, the vector of default base offset parameters
    * w.r.t. the designated world frame (i.e. from default base to world)
    */
-  void GetDefaultBaseOff(Eigen::VectorXd& baseoff);
+  void GetDefaultBaseOff(Eigen::VectorXd& baseoff) const;
 
 
 

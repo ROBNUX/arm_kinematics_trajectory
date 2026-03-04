@@ -195,7 +195,7 @@ Vec Vec::FromEigenVec(const Eigen::Vector3d& v) {
   return Vec(v(0), v(1), v(2));
 }
 
-Eigen::Vector3d Vec::ToEigenVec() {
+Eigen::Vector3d Vec::ToEigenVec() const {
   return Eigen::Vector3d(data[0], data[1], data[2]);
 }
 

@@ -147,21 +147,21 @@ void Frame::setRotation(const Rotation& rot) {
   rot.GetQuaternion(&this->q_);
 }
 
-Eigen::VectorXd Frame::ToEigenVecQuat() {
+Eigen::VectorXd Frame::ToEigenVecQuat() const{
   Eigen::VectorXd fm(7);
   fm.block(0, 0, 3, 1) = p_.ToEigenVec();
   fm.block(3, 0, 4, 1) = q_.ToEigenVec();
   return fm;
 }
 
-Eigen::VectorXd Frame::ToEigenVecEulerZYX() {
+Eigen::VectorXd Frame::ToEigenVecEulerZYX() const {
   Eigen::VectorXd fm(6);
   fm.block(0, 0, 3, 1) = p_.ToEigenVec();
   fm.block(3, 0, 3, 1) = r_.ToEigenVecZYX();
   return fm;
 }
 
-Eigen::VectorXd Frame::ToEigenVecEulerZYZ() {
+Eigen::VectorXd Frame::ToEigenVecEulerZYZ() const {
   Eigen::VectorXd fm(6);
   fm.block(0, 0, 3, 1) = p_.ToEigenVec();
   fm.block(3, 0, 3, 1) = r_.ToEigenVecZYZ();

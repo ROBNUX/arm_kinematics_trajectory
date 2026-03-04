@@ -197,9 +197,9 @@ class COMMON_API Frame {
   /*
    * The following functions are for converting to Eigen vectors
    */
-  Eigen::VectorXd ToEigenVecQuat();
-  Eigen::VectorXd ToEigenVecEulerZYX();
-  Eigen::VectorXd ToEigenVecEulerZYZ();
+  Eigen::VectorXd ToEigenVecQuat() const;
+  Eigen::VectorXd ToEigenVecEulerZYX() const;
+  Eigen::VectorXd ToEigenVecEulerZYZ() const;
 
  protected:
   Quaternion q_;

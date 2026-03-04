@@ -395,7 +395,7 @@ Quaternion Quaternion::getIdentity() { return Quaternion(1, 0, 0, 0); }
 
 Quaternion Quaternion::getZero() { return Quaternion(0, 0, 0, 0); }
 
-Eigen::Vector4d Quaternion::ToEigenVec() {
+Eigen::Vector4d Quaternion::ToEigenVec() const {
   return Eigen::Vector4d(q[0], q[1], q[2], q[3]);
 }
 Rotation::Rotation() {
@@ -1102,7 +1102,7 @@ bool Rotation::operator==(const Rotation& a) {
          this->UnitZ() == a.UnitZ();
 }
 
-Eigen::Matrix3d Rotation::ToEigenMat() {
+Eigen::Matrix3d Rotation::ToEigenMat() const {
   Eigen::Matrix3d mat;
   mat.col(0) = UnitX().ToEigenVec();
   mat.col(1) = UnitY().ToEigenVec();
@@ -1110,7 +1110,7 @@ Eigen::Matrix3d Rotation::ToEigenMat() {
   return mat;
 }
 
-Eigen::Vector3d Rotation::ToEigenVecZYX() {
+Eigen::Vector3d Rotation::ToEigenVecZYX() const {
   double yaw, pitch, roll;
   if (GetEulerZYX(&yaw, &pitch, &roll)) {
     return Eigen::Vector3d(yaw, pitch, roll);
@@ -1119,7 +1119,7 @@ Eigen::Vector3d Rotation::ToEigenVecZYX() {
   }
 }
 
-Eigen::Vector3d Rotation::ToEigenVecZYZ() {
+Eigen::Vector3d Rotation::ToEigenVecZYZ() const {
   double A, B, C;
   if (GetEulerZYZ(&A, &B, &C)) {
     return Eigen::Vector3d(A, B, C);

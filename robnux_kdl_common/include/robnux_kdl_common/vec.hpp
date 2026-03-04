@@ -166,7 +166,7 @@ class COMMON_API Vec {
   //! get a vector from an Eigen::Vector3d
   static Vec FromEigenVec(const Eigen::Vector3d& v);
   //! transfer a Vec to an Eigen Vector
-  Eigen::Vector3d ToEigenVec();
+  Eigen::Vector3d ToEigenVec() const;
   //! transfer to skew-symmetric matrix hat<V>
   bool ToHat(Eigen::Matrix3d* hatv);
 

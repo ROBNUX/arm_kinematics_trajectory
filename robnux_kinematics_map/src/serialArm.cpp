@@ -50,7 +50,7 @@ void serialArm::SetGeometry(const Eigen::VectorXd& kine_para) {
 }
 
 void serialArm::UpdateDH(const Eigen::VectorXd& q, 
-                         Eigen::VectorXd& theta, Eigen::VectorXd& d) {
+                         Eigen::VectorXd& theta, Eigen::VectorXd& d) const {
     std::ostringstream strs;
     strs.str("");
     strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"

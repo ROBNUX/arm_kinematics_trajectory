@@ -9,7 +9,13 @@ namespace kinematics_lib {
 XYZ_UR::XYZ_UR(): BaseKinematicMap(5, 5) {
     UR = std::make_shared<UJNT>();
     XYZ = std::make_shared<XYZGantry>();
-}
+    jnt_names_.resize(DoF_);
+    jnt_names_[0] = "JOINT_1_ACT";
+    jnt_names_[1] = "JOINT_2_ACT";
+    jnt_names_[2] = "JOINT_3_ACT";
+    jnt_names_[3] = "JOINT_4_ACT";
+    jnt_names_[4] = "JOINT_5_ACT";
+ }
 
 
 
@@ -326,10 +332,9 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
 }
 
 
-  
-  void XYZ_UR::SetPitchCoef(const Eigen::VectorXd &pitch) {
-    std::ostringstream strs;
-    if (!initialized_) {
+void XYZ_UR::SetUseCalibrated(const bool useCalibrated) {
+  if (!initialized_) {
+      std::ostringstream strs;
       strs.str("");
       strs << GetName() <<  " geometric parameters are not initialized"
                 << " in function "
@@ -337,202 +342,57 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
       LOG_ERROR(strs);
       return; 
     }
-    if (pitch.size() != DoF_) {
+    UR->SetUseCalibrated(useCalibrated);
+    XYZ->SetUseCalibrated(useCalibrated);
+    useCalibrated_ = useCalibrated;
+}
+
+  void XYZ_UR::SetDefaultBaseOff(const Eigen::VectorXd& baseoff) {
+    if (!initialized_) {
+      std::ostringstream strs;
       strs.str("");
-      strs << GetName() << ":" << "input kine_parameters has dimension not equal to 5 * DoF in "
+      strs << GetName() <<  " geometric parameters are not initialized"
+                << " in function "
+                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+      LOG_ERROR(strs);
+      return; 
+    }
+    if (baseoff.size() != 14) {
+      std::ostringstream strs;
+      strs.str("");
+      strs << GetName() << ":" << "input baseoff has dimension not equal to DoF in "
                    << __FUNCTION__ << " line " << __LINE__ << std::endl;
       LOG_ERROR(strs);
       return;
     }
-    pitch_ = pitch;
-    strs.str("");
-    strs << GetName() << ":" << "SetPitch = " << pitch_ << std::endl;
-    LOG_INFO(strs);
-    Eigen::VectorXd xyzSeg(XYZ->GetDoF());
-    Eigen::VectorXd urSeg(UR->GetDoF());
-    for (size_t i=0; i < DoF_; i++) {
-      if (i < XYZ->GetDoF()) {
-        xyzSeg(i) = pitch(i);
-      } else {
-        urSeg(i - XYZ->GetDoF()) = pitch(i);
-      }
-    }
-
-    XYZ->SetPitchCoef(xyzSeg);
-    UR->SetPitchCoef(urSeg);    
+    UR->SetDefaultBaseOff(baseoff.segment(7, 7));
+    XYZ->SetDefaultBaseOff(baseoff.segment(0, 7));
   }
 
-  
-
-
-  bool XYZ_UR::GetCalibParamSet(EigenDRef<Eigen::VectorXd> *cal_DH) {
-    std::ostringstream strs;
+  void XYZ_UR::GetDefaultBaseOff(Eigen::VectorXd& baseoff) const {
     if (!initialized_) {
+      std::ostringstream strs;
       strs.str("");
       strs << GetName() <<  " geometric parameters are not initialized"
                 << " in function "
                 << __FUNCTION__ << ", line " << __LINE__ << std::endl;
       LOG_ERROR(strs);
-      return false; 
+      return; 
     }
-    size_t dof_XYZ = XYZ->GetDoF();
-    size_t dof_UR = UR->GetDoF();
-    Eigen::VectorXd cal_DH_XYZ(5 * dof_XYZ + 14);
-    Eigen::VectorXd cal_DH_UR(5 * dof_UR + 14);
-    if (!XYZ->GetCalibParamSet(&cal_DH_XYZ)) {
-      return false;
+    if (baseoff.size() < 14) {
+      baseoff.resize(14);
     }
-    if (!UR->GetCalibParamSet(&cal_DH_UR)) {
-      return false;
-    }
-    std::vector<double> alpha(DoF_), a(DoF_), theta(DoF_), d(DoF_), beta(DoF_);
-    
-    for (size_t i=0; i < dof_XYZ; i++) {
-      alpha[i] = cal_DH_XYZ[i];
-      a[i] = cal_DH_XYZ[dof_XYZ + i];
-      theta[i] = cal_DH_XYZ[2 * dof_XYZ + i];
-      d[i] = cal_DH_XYZ[3 * dof_XYZ + i];
-      beta[i] = cal_DH_XYZ[4 * dof_XYZ + i];
-    } 
-
-    for (size_t i=0; i < dof_UR; i++) {
-      alpha[dof_XYZ + i] = cal_DH_UR[i];
-      a[dof_XYZ + i] = cal_DH_UR[dof_UR + i];
-      theta[dof_XYZ + i] = cal_DH_UR[2 * dof_UR + i];
-      d[dof_XYZ + i] = cal_DH_UR[3 * dof_UR + i];
-      beta[dof_XYZ + i] = cal_DH_UR[4 * dof_UR + i];
-    } 
-   
-    if (cal_DH->size() < 5 * DoF_ + 14) {
-      strs.str("");
-      strs << GetName() << ":" << "The input vector pointer has wrong dimension in function "
-            << __FUNCTION__ << ", at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return false;
-    }
-    std::vector<double> tmp;
-    tmp.insert(tmp.end(), alpha.begin(), alpha.end());
-    tmp.insert(tmp.end(), a.begin(), a.end());
-    tmp.insert(tmp.end(), theta.begin(), theta.end());
-    tmp.insert(tmp.end(), d.begin(), d.end());
-    tmp.insert(tmp.end(), beta.begin(), beta.end());
-    for (size_t i=0; i < 5 * DoF_; i++) {
-       (*cal_DH)(i) = tmp[i];
-    }
-    // get defaultBaseoff and subdefaultBaseoff
-    cal_DH->segment(5 * DoF_, 7) = cal_DH_XYZ.segment(5 * dof_XYZ, 7);
-    cal_DH->segment(5 * DoF_ + 7, 7) = cal_DH_UR.segment(5 * dof_UR, 7);
-    strs.str("");
-    strs << GetName() << ": GetCalibPram success" << std::endl;
-    LOG_INFO(strs);
-    return true;
+    Eigen::VectorXd baseoff_XYZ, baseoff_UR;
+    baseoff_XYZ.resize(7);
+    baseoff_UR.resize(7);
+    XYZ->GetDefaultBaseOff(baseoff_XYZ);
+    UR->GetDefaultBaseOff(baseoff_UR);
+    baseoff.segment(0, 7) = baseoff_XYZ;
+    baseoff.segment(7, 7) = baseoff_UR;
   }
 
-  bool XYZ_UR::GetCalibParamSet(Eigen::VectorXd *cal_DH) {
-    std::ostringstream strs;
-    if (!initialized_) {
-      strs.str("");
-      strs << GetName() <<  " geometric parameters are not initialized"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return false; 
-    }
-    size_t dof_XYZ = XYZ->GetDoF();
-    size_t dof_UR = UR->GetDoF();
-    Eigen::VectorXd cal_DH_XYZ(5 * dof_XYZ + 14);
-    Eigen::VectorXd cal_DH_UR(5 * dof_UR + 14);
-    if (!XYZ->GetCalibParamSet(&cal_DH_XYZ)) {
-      return false;
-    }
-    if (!UR->GetCalibParamSet(&cal_DH_UR)) {
-      return false;
-    }
-    std::vector<double> alpha(DoF_), a(DoF_), theta(DoF_), d(DoF_), beta(DoF_);
-    
-    for (size_t i=0; i < dof_XYZ; i++) {
-      alpha[i] = cal_DH_XYZ[i];
-      a[i] = cal_DH_XYZ[dof_XYZ + i];
-      theta[i] = cal_DH_XYZ[2 * dof_XYZ + i];
-      d[i] = cal_DH_XYZ[3 * dof_XYZ + i];
-      beta[i] = cal_DH_XYZ[4 * dof_XYZ + i];
-    } 
-
-    for (size_t i=0; i < dof_UR; i++) {
-      alpha[dof_XYZ + i] = cal_DH_UR[i];
-      a[dof_XYZ + i] = cal_DH_UR[dof_UR + i];
-      theta[dof_XYZ + i] = cal_DH_UR[2 * dof_UR + i];
-      d[dof_XYZ + i] = cal_DH_UR[3 * dof_UR + i];
-      beta[dof_XYZ + i] = cal_DH_UR[4 * dof_UR + i];
-    } 
-   
-    if (cal_DH->size() < 5 * DoF_ + 14) {
-      strs.str("");
-      strs << GetName() << ":" << "The input vector pointer has wrong dimension in function "
-            << __FUNCTION__ << ", at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return false;
-    }
-    std::vector<double> tmp;
-    tmp.insert(tmp.end(), alpha.begin(), alpha.end());
-    tmp.insert(tmp.end(), a.begin(), a.end());
-    tmp.insert(tmp.end(), theta.begin(), theta.end());
-    tmp.insert(tmp.end(), d.begin(), d.end());
-    tmp.insert(tmp.end(), beta.begin(), beta.end());
-    for (size_t i=0; i < 5 * DoF_; i++) {
-       (*cal_DH)(i) = tmp[i];
-    }
-    // get defaultBaseoff and subdefaultBaseoff
-    cal_DH->segment(5 * DoF_, 7) = cal_DH_XYZ.segment(5 * dof_XYZ, 7);
-    cal_DH->segment(5 * DoF_ + 7, 7) = cal_DH_UR.segment(5 * dof_UR, 7);
-    strs.str("");
-    strs << GetName() << ": GetCalibPram success" << std::endl;
-    LOG_INFO(strs);
-    return true;
-  }
-
-  bool XYZ_UR::LoadCalibParamSet(const std::vector<double> &kine_para) {
-    std::ostringstream strs;
-    if (!initialized_) {
-      strs.str("");
-      strs << GetName() <<  " geometric parameters are not initialized"
-                << " in function "
-                << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
-      return false; 
-    }
-    std::vector<double> alpha(DoF_), a(DoF_), theta(DoF_), d(DoF_), beta(DoF_);
-    for (size_t i=0; i < DoF_; i++) {
-          alpha[i] = kine_para[i];
-          a[i] = kine_para[DoF_ + i];
-          theta[i] = kine_para[2 * DoF_ + i];
-          d[i] = kine_para[3 * DoF_ + i];
-          beta[i] = kine_para[4 * DoF_ + i];
-    }
-    std::vector<double> dh_XYZ, dh_UR;  
-    dh_XYZ.insert(dh_XYZ.end(), alpha.begin(), alpha.begin() + 3);
-    dh_XYZ.insert(dh_XYZ.end(), a.begin(), a.begin() + 3);
-    dh_XYZ.insert(dh_XYZ.end(), theta.begin(), theta.begin() + 3);
-    dh_XYZ.insert(dh_XYZ.end(), d.begin(), d.begin() + 3);
-    dh_XYZ.insert(dh_XYZ.end(), beta.begin(), beta.begin() + 3);
-    dh_XYZ.insert(dh_XYZ.end(), kine_para.begin()+ 5 * DoF_, kine_para.begin() + 5 * DoF_ + 7);
-    dh_XYZ.insert(dh_XYZ.end(), kine_para.begin()+ 5 * DoF_, kine_para.begin() + 5 * DoF_ + 7);
-    dh_UR.insert(dh_UR.end(), alpha.begin() + 3, alpha.end());
-    dh_UR.insert(dh_UR.end(), a.begin() + 3, a.end());
-    dh_UR.insert(dh_UR.end(), theta.begin() + 3, theta.end());
-    dh_UR.insert(dh_UR.end(), d.begin() + 3, d.end());
-    dh_UR.insert(dh_UR.end(), beta.begin() + 3, beta.end());
-    dh_UR.insert(dh_UR.end(), kine_para.begin()+ 5 * DoF_+7, kine_para.end());
-    dh_UR.insert(dh_UR.end(), kine_para.begin()+ 5 * DoF_+7, kine_para.end());
-    if (XYZ->LoadCalibParamSet(dh_XYZ) && UR->LoadCalibParamSet(dh_UR)) {
-      this->isDHCalibrated_ = true;
-    }
-    return true;
-  }
-
-  
-
-  void XYZ_UR::SetUsingCalibratedModel(bool useCalibratedModel) {
+  void XYZ_UR::GetPitchAndBacklash(Eigen::VectorXd& pitch,
+                           Eigen::VectorXd& backlash) const {
     std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
@@ -542,13 +402,20 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
       LOG_ERROR(strs);
       return; 
     }
-    XYZ->SetUsingCalibratedModel(useCalibratedModel);
-    UR->SetUsingCalibratedModel(useCalibratedModel);
-    useCalibrated_ = useCalibratedModel;
+    pitch.resize(DoF_);
+    backlash.resize(DoF_);
+    Eigen::VectorXd pitch_XYZ, backlash_XYZ;
+    Eigen::VectorXd pitch_UR, backlash_UR;
+    XYZ->GetPitchAndBacklash(pitch_XYZ, backlash_XYZ);
+    UR->GetPitchAndBacklash(pitch_UR, backlash_UR);
+    pitch.segment(0, XYZ->GetDoF()) = pitch_XYZ;
+    backlash.segment(0, XYZ->GetDoF()) = backlash_XYZ;
+    pitch.segment(XYZ->GetDoF(), UR->GetDoF()) = pitch_UR;
+    backlash.segment(XYZ->GetDoF(), UR->GetDoF()) = backlash_UR;
   }
 
-  //! has robot been calibrated
-  bool XYZ_UR::isCalibrated() {
+  void XYZ_UR::SetPitchAndBacklash(const Eigen::VectorXd& pitch,
+                           const Eigen::VectorXd& backlash) {
     std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
@@ -556,22 +423,32 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
                 << " in function "
                 << __FUNCTION__ << ", line " << __LINE__ << std::endl;
       LOG_ERROR(strs);
-      return false; 
+      return;
     }
-    // std::cout << "XYZ clibrated: "  << XYZ->isCalibrated() << ", UR calibrated: " << UR->isCalibrated()  << std::endl;
-    // std::cout << GetName() << ": isCalibrated() =" << isDHCalibrated_ << std::endl;
-    return isDHCalibrated_;
+    if (pitch.size() != DoF_ || backlash.size() != DoF_) {
+      strs.str("");
+      strs << GetName() << ":" << "input pitch and backlash have dimension not equal to DoF in "
+                   << __FUNCTION__ << " line " << __LINE__ << std::endl;
+      LOG_ERROR(strs);
+      return;
+    }
+    Eigen::VectorXd pitch_XYZ, backlash_XYZ;
+    Eigen::VectorXd pitch_UR, backlash_UR;
+    pitch_XYZ = pitch.segment(0, XYZ->GetDoF());
+    backlash_XYZ = backlash.segment(0, XYZ->GetDoF());
+    pitch_UR = pitch.segment(XYZ->GetDoF(), UR->GetDoF());
+    backlash_UR = backlash.segment(XYZ->GetDoF(), UR->GetDoF());
+    XYZ->SetPitchAndBacklash(pitch_XYZ, backlash_XYZ);
+    UR->SetPitchAndBacklash(pitch_UR, backlash_UR);
   }
 
-  //! is parameter initialized
-  bool XYZ_UR::isInitialized() const {
-    if (!initialized_) {
-      return false;
-    }
-    return XYZ->isInitialized() && UR->isInitialized();
+  int XYZ_UR::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
+                  Eigen::VectorXd& qpassive) {
+    return 0;  // means no passive joints
   }
-  //! reset calibration model
-  bool XYZ_UR::resetCalibration() {
+
+  
+  void XYZ_UR::resetCalibration() {
     std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
@@ -582,7 +459,8 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
       return false; 
     }
     isDHCalibrated_ = false;
-    return XYZ->resetCalibration() && UR->resetCalibration();
+    XYZ->ResetCalibration();
+    UR->ResetCalibration();
   }
 
 
