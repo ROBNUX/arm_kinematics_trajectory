@@ -8,16 +8,23 @@
 
     <license>MIT</license>
 
-    <buildtool_depend>ament_cmake</buildtool_depend> 
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
     <build_depend>simple_motion_logger</build_depend>
     <build_depend>robnux_kdl_common</build_depend>
     <build_depend>pluginlib</build_depend>
-    
+    <build_depend>eigen3_cmake_module</build_depend>
+
+    <build_export_depend>simple_motion_logger</build_export_depend>
+    <build_export_depend>robnux_kdl_common</build_export_depend>
+    <build_export_depend>pluginlib</build_export_depend>
+    <build_export_depend>eigen3_cmake_module</build_export_depend>
+
     <exec_depend>simple_motion_logger</exec_depend>
     <exec_depend>robnux_kdl_common</exec_depend>
     <exec_depend>pluginlib</exec_depend>
-    
+
     <export>
-       <kinematics_map plugin="${prefix}/kinematics_plugin.xml" />
+        <pluginlib plugin="${prefix}/kinematics_plugin.xml" />
     </export>
 </package>
