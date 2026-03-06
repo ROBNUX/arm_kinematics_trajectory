@@ -70,17 +70,7 @@ void serialArm::UpdateDH(const Eigen::VectorXd& orig_dh,
     LOG_ALARM(strs);
 }
 
-void  serialArm::UpdateConfigTurn(const Eigen::VectorXd& theta,
-                                  const Eigen::VectorXd &d,
-                                  std::vector<int>& branchFlags,
-                                  std::vector<int>& jointTurns) const {
-    std::ostringstream strs;
-    strs.str("");
-    strs << GetName() << ":" << "This function shouldn't be called, should be implemented in"
-         << " children class, in "
-         << __FUNCTION__ << " line " << __LINE__ << std::endl;
-    LOG_ALARM(strs);
-}
+
 
 int serialArm::JntToCart(const Eigen::VectorXd& q,
                        Pose& p) {

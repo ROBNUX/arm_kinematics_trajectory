@@ -64,7 +64,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, Pose& p) {
                                                             //initialized"
          << " in function " << __FUNCTION__ << ", line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_ROB_PARAM_NOT_INITIALIZED;
   }
   if (q.size() < DoF_) {
@@ -73,7 +76,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, Pose& p) {
                                                        //wrong dimension in
                                                        //function "
          << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_INPUT_PARA_WRONG_DIM;
   }
   
@@ -100,7 +106,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, Pose& p) {
                                                     //arms overlaps, no forward"
         << ", in function " << __FUNCTION__ << ", at line " << __LINE__
         << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_QUATTRO_FK_OVERLAP;
   }
   n1 = n1 / norm_n1;
@@ -123,7 +132,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, Pose& p) {
                                                       //line,"
          << ", in function " << __FUNCTION__ << ", at line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_QUATTRO_FK_3PT_LINE;
   }
   // x axis of plane c1 is normalized vector of O1O3
@@ -137,7 +149,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, Pose& p) {
                                                             //intersections,"
          << ", in function " << __FUNCTION__ << ", at line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_QUATTRO_FK_CIRC_NO_INTERS;
   }
   // always use positive branch, the solution could be -alpha too.
@@ -166,7 +181,10 @@ int Quattro::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
                                                             //initialized"
          << " in function " << __FUNCTION__ << ", line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_ROB_PARAM_NOT_INITIALIZED;
   }
   int ret = this->JntToCart(q, p);
@@ -179,7 +197,10 @@ int Quattro::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
                                                        //wrong dimension in
                                                        //function "
          << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_INPUT_PARA_WRONG_DIM;
   }
   Vec PP = p.getTranslation();
@@ -240,7 +261,10 @@ int Quattro::JntToCart(const Eigen::VectorXd &q, const Eigen::VectorXd &qdot,
                                                           //is singular"
         << ", in function " << __FUNCTION__ << ", at line " << __LINE__
         << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_QUATTRO_DIFF_FK_SINGULAR;
   }
   Vec PPdot;
@@ -267,7 +291,10 @@ int Quattro::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << ERR_DESCRIPTION[ERR_ROB_PARAM_NOT_INITIALIZED] 
          << " in function " << __FUNCTION__ << ", line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_ROB_PARAM_NOT_INITIALIZED;
   }
   int ret = this->JntToCart(q, qdot, p, v);
@@ -382,7 +409,10 @@ int Quattro::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
       strs << "Quattro arm " << i + 1 << " is singular, can not cal. "
                 << "inverse kinematics in function " << __FUNCTION__
                 << ", at line " << __LINE__ << std::endl;
-      LOG_ERROR(strs);
+      {
+        std::string _tmp = strs.str();
+        LOG_ERROR(_tmp);
+      }
       return -19;
     }
     double tmp2 = (d1_ * d1_ - A1) / tmp1;
@@ -416,7 +446,10 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     strs << "Quattro geometric parameters are not initialized"
          << " in function " << __FUNCTION__ << ", at line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -16;
   }
   if (q.size() != A_DoF_ || qdot.size() != A_DoF_) {
@@ -440,8 +473,8 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     Vec V2i(a_b1_ * cq * ca, a_b1_ * cq * sa, -a_b1_ * sq);
     Vec Ax1i(-sa, ca, 0);
     Vec tipi = Vec(diff_radius_ * ca, diff_radius_ * sa, 0) + V2i;
@@ -453,7 +486,10 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
       strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", at line " << __LINE__
                 << std::endl;
-      LOG_ERROR(strs);
+      {
+        std::string _tmp = strs.str();
+        LOG_ERROR(_tmp);
+      }
       return -21;
     }
     qdot(i) = righti / diagJ1i;
@@ -470,7 +506,10 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     strs << "Quattro geometric parameters are not initialized"
          << " in function " << __FUNCTION__ << ", at line " << __LINE__
          << std::endl;
-    LOG_ERROR(strs.str());
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -16;
   }
   if (q.size() != A_DoF_ || qdot.size() != A_DoF_ ||
@@ -497,16 +536,16 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     Vec V2i(a_b1_ * cq * ca, a_b1_ * cq * sa, -a_b1_ * sq);
 
     Vec Ax1i(-sa, ca, 0);
     Vec tipi = Vec(diff_radius_ * ca, diff_radius_ * sa, 0) + V2i;
     Vec V3i = PP - tipi;
-    Vec V3idot = PPdot - (Ax1i * V2i) * (*qdot)(i);
+    Vec V3idot = PPdot - (Ax1i * V2i) * qdot(i);
     double sq_V3idot = -V3idot.sqNorm();
-    double qdot_sq = (*qdot)(i) * (*qdot)(i);
+    double qdot_sq = qdot(i) * qdot(i);
     double V3i_c_Ax1i_dot_Ax1i_c_V2i = (V3i * Ax1i).dot(Ax1i * V2i) * qdot_sq;
 
     double diagJ1i = (Ax1i * V2i).dot(V3i);
@@ -516,7 +555,10 @@ int Quattro::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
       strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", at line " << __LINE__
                 << std::endl;
-      LOG_ERROR(strs.str());
+      {
+        std::string _tmp = strs.str();
+        LOG_ERROR(_tmp);
+      }
       return -21;
     }
     qddot(i) = righti / diagJ1i;
@@ -534,7 +576,10 @@ int Quattro::CalcJacobian(const Eigen::VectorXd& kine_para,
   strs << "Quattro does not support calculating Jacobian matrix, "
             << " in function " << __FUNCTION__ << ", line " << __LINE__
             << std::endl;
-  LOG_ERROR(strs.str());
+  {
+    std::string _tmp = strs.str();
+    LOG_ERROR(_tmp);
+  }
   return -38;
 }
 

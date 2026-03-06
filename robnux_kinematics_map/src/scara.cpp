@@ -16,6 +16,7 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd& q) {
     strs << "Scara geometric parameters are not initialized"
               << " in function "
               << __FUNCTION__ << ", line " << __LINE__ << std::endl;
+
     LOG_ERROR(strs);
     return -ERR_ROB_PARAM_NOT_INITIALIZED; 
   }
@@ -36,6 +37,7 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd& q) {
       strs << "input pose has no branch information"
               <<" in " << __FUNCTION__
               <<" at line " << __LINE__ << std::endl;
+
       LOG_ERROR(strs);
       return -ERR_ROB_NO_BRANCH_INFO;
   }
@@ -50,20 +52,26 @@ int Scara::CartToJnt(const Pose &pos, Eigen::VectorXd& q) {
     strs << "default CartToJnt function must using canonical kinematic"
               " model in" << __FUNCTION__
               << ", at line " << __LINE__  << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_ROB_DEFAULT_IK_NOT_CANO;
   }
 
   //computer prismatic joint value
   // recall here d_[2] is the offset value of 0 of this prismatic axis
-  q->at(2) =  p.z() - (d_[0] + d_[1] + d_[2] + d_[3]);
+  q(2) =  p.z() - (d_[0] + d_[1] + d_[2] + d_[3]);
   double xy_length = sqrt(p.x() * p.x() + p.y() * p.y());
   if (xy_length > a_[1] + a_[2]  || xy_length < fabs(a_[1] -a_[2])) { // then out of reach
     strs.str("");
     strs << "exception CartToJnt, scara, IK fails due to desire pose out"
               <<" of reach in " << __FUNCTION__
               <<" at line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
+    {
+      std::string _tmp = strs.str();
+      LOG_ERROR(_tmp);
+    }
     return -ERR_ROB_IK_OUTOF_REACH;
   }
   // the orientation angle from origin to the origin of tool frame
@@ -124,13 +132,13 @@ void  Scara::UpdateConfigTurn(const Eigen::VectorXd& theta,
     branchFlags.resize(3, eBranchLeft);
     // 4 turn flags, actually only 3 turn flags (because joint 3 is prismatic
     jointTurns.resize(4, 0);
-    std::vector<double> q_tmp = theta;
-    q_tmp[2] = d[2];
+    Eigen::VectorXd q_tmp = theta;
+    q_tmp(2) = d(2);
     double tmp_q = 0;
     for (size_t i=0; i < DoF_; i++) {
       if (i != 2) {
-         jointTurns[i] = std::floor(q_tmp[i] / (2 * M_PI));
-         tmp_q = q_tmp[i] - jointTurns[i] * 2 * M_PI;
+         jointTurns[i] = std::floor(q_tmp(i) / (2 * M_PI));
+         tmp_q = q_tmp(i) - jointTurns[i] * 2 * M_PI;
          // then make sure [-PI, PI]
          // to have 0 turn here
          if (tmp_q > M_PI) {

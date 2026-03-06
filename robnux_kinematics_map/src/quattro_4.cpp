@@ -76,14 +76,14 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, Pose& p) {
     strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   if (q.size() < DoF_) {
     strs.str("");
     strs << "input joint vector has wrong dimension in function "
               << __FUNCTION__ << ", line " << __LINE__ << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -13;
   }
 
@@ -108,7 +108,7 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   int ret = this->JntToCart(q, p);
@@ -120,7 +120,7 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << " input joint velocity dimension is wrong "
               << " in function " << __FUNCTION__ << " at line" << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
   }
   Vec PP = p.getTranslation();
   Quaternion qq = p.getQuaternion();
@@ -130,7 +130,7 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -204,7 +204,7 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   int ret = this->JntToCart(q, qdot, p, v);
@@ -219,7 +219,7 @@ int Quattro_4::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -312,7 +312,7 @@ int Quattro_4::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
     strs << "Quattro_4 geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   if (q.size() != A_DoF_) {
@@ -327,7 +327,7 @@ int Quattro_4::CartToJnt(const Pose& p, Eigen::VectorXd& q) {
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -387,7 +387,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     strs << "Quattro_4 geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   if (q.size() != A_DoF_ || qdot.size() != A_DoF_) {
@@ -407,7 +407,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -452,7 +452,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
       strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", line " << __LINE__
                 << std::endl;
-      LOG_ERROR(strs.str());
+      LOG_ERROR(strs);
       return -21;
     }
     qdot(i) = righti / diagJ1i;
@@ -469,7 +469,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     strs << "Quattro geometric parameters are not initialized"
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -16;
   }
   if (q.size() != A_DoF_ || qdot.size() != A_DoF_ ||
@@ -492,7 +492,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -565,7 +565,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
       strs << "arm " << i << " in IK singular "
                 << " at function " << __FUNCTION__ << ", line " << __LINE__
                 << std::endl;
-      LOG_ERROR(strs.str());
+      LOG_ERROR(strs);
       return -21;
     }
     qddot(i) = righti / diagJ1i;
@@ -583,7 +583,7 @@ int Quattro_4::CalcJacobian(const Eigen::VectorXd& kine_para,
   strs << "Quattro_4 does not support calculating Jacobian matrix, "
             << " in function " << __FUNCTION__ << ", line " << __LINE__
             << std::endl;
-  LOG_ERROR(strs.str());
+  LOG_ERROR(strs);
   return -38;
 }
 
@@ -636,7 +636,7 @@ int Quattro_4::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
     strs << "Quattro_4 compute yaw of current pose got error "
               << " in function " << __FUNCTION__ << ", line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -37;
   }
   double cyaw = cos(yaw);
@@ -698,7 +698,7 @@ int Quattro_4::SolvePolyRoots(std::vector<double>& solution) {
     strs.str("");
     strs << "input parameter is null in function " << __FUNCTION__
               << " at line " << __LINE__ << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -32;
   }
   // check if there are any higher order coefficients are 0,
@@ -774,7 +774,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs.str("");
     strs << "B1, B2 overlapps in function " << __FUNCTION__ << " and line "
               << __LINE__ << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -27;
   }
   n1 = n1 / norm_n1;  // normalize
@@ -785,7 +785,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs.str("");
     strs << "B3, B4 overlapps in function " << __FUNCTION__ << " and line "
               << __LINE__ << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -27;
   }
   n2 = n2 / norm_n2;  // normalize
@@ -797,7 +797,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "parallelogram length is too short to"
               << " close the loop, no FK solution in " << __FUNCTION__
               << " and line " << __LINE__ << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -28;
   }
   double r1 = sqrt(csq - norm_n1_sq / 4.0);
@@ -819,7 +819,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "It is singular in computing the basis of circles"
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -28;
   }
   double st1 = -n1.y() / cg1;
@@ -841,7 +841,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "It is singular in computing the basis of circles"
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -28;
   }
   double st2 = -n2.y() / cg2;
@@ -863,7 +863,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "s1 and s2 are close to 0 "
               << "in function " << __FUNCTION__ << " and line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -29;
   }
   double sta = matK1[6] / s1;
@@ -1082,7 +1082,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "Polynomial has no solution using eigen"
               << " in function " << __FUNCTION__ << " at line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -33;
   }
   // sol[0] is sin(alpha')
@@ -1099,7 +1099,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
       strs << "FK fails because the chosen root of polynomial is > 1"
                 << " in function " << __FUNCTION__ << " at line " << __LINE__
                 << std::endl;
-      LOG_ERROR(strs.str());
+      LOG_ERROR(strs);
       return -34;
     }
     // next branch flag, branchFlags_[1], determines which final solution
@@ -1142,7 +1142,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
       strs.str("");
       strs << "solution check fails, diffP_norm-ee= "
                 << fabs(diffP_norm - ee) << ", yaw=" << yaw << std::endl;
-      LOG_ERROR(strs.str());
+      LOG_ERROR(strs);
     }
   }
 
@@ -1151,7 +1151,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     strs << "FK for quattro 4 fails"
               << " in function " << __FUNCTION__ << " at line " << __LINE__
               << std::endl;
-    LOG_ERROR(strs.str());
+    LOG_ERROR(strs);
     return -35;
   }
   pos.setTranslation((p1 + p2) / 2.0);

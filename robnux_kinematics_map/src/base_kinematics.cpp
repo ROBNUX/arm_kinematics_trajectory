@@ -66,7 +66,9 @@ void BaseKinematicMap::SetDefaultBaseOff(
 void BaseKinematicMap::GetDefaultBaseOff(Eigen::VectorXd& baseoff) const {
     std::ostringstream strs;
     
-    baseoff = defaultBaseOff_.ToEigenVecQuat();
+    // ToEigenVecQuat() is non-const in Frame, avoid calling on const
+    Frame tmp = defaultBaseOff_;
+    baseoff = tmp.ToEigenVecQuat();
     strs.str("");
     strs << GetName() << ":"
          << " getDefaultBaseOff =" << baseoff.transpose() << std::endl;

@@ -50,7 +50,6 @@ void QuattroK::SetGeometry(const Eigen::VectorXd& parameters) {
     a_b1_ = sqrt(b1_ * b1_ + c1_ * c1_);
     delta1_ = atan2(c1_, b1_);
     diff_radius_ = R1_ - r1_ - m_ / sqrt(2);
-    char_length_ = b1_ + d1_;
     initialized_ = true;
   }
 }
@@ -421,8 +420,8 @@ int QuattroK::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     Vec V2i(a_b1_ * cq * ca, a_b1_ * cq * sa, a_b1_ * sq);
     Vec Ax1i(sa, -ca, 0);
     Vec tipi = Vec(diff_radius_ * ca, diff_radius_ * sa, 0) + V2i;
@@ -478,16 +477,16 @@ int QuattroK::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     Vec V2i(a_b1_ * cq * ca, a_b1_ * cq * sa, a_b1_ * sq);
 
     Vec Ax1i(sa, -ca, 0);
     Vec tipi = Vec(diff_radius_ * ca, diff_radius_ * sa, 0) + V2i;
     Vec V3i = PP - tipi;
-    Vec V3idot = PPdot - (Ax1i * V2i) * (*qdot)(i);
+    Vec V3idot = PPdot - (Ax1i * V2i) * qdot(i);
     double sq_V3idot = -V3idot.sqNorm();
-    double qdot_sq = (*qdot)(i) * (*qdot)(i);
+    double qdot_sq = qdot(i) * qdot(i);
     double V3i_c_Ax1i_dot_Ax1i_c_V2i = (V3i * Ax1i).dot(Ax1i * V2i) * qdot_sq;
 
     double diagJ1i = (Ax1i * V2i).dot(V3i);
@@ -514,7 +513,10 @@ int QuattroK::CalcJacobian(const Eigen::VectorXd& kine_para,
   strs << "QuattroK does not support calculating Jacobian matrix, "
             << " in function " << __FUNCTION__ << ", line " << __LINE__
             << std::endl;
-  LOG_ERROR(strs.str());
+  {
+    std::string _tmp = strs.str();
+    LOG_ERROR(_tmp);
+  }
   return -38;
 }
 int QuattroK::CalcPassive(const Eigen::VectorXd& q, const Pose& p,

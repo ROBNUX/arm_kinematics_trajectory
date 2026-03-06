@@ -66,7 +66,7 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     p = p - R * pl;
 
     // to add the effect of a3  we define a sudo a2 link with length of: 
-	  double sudo_s4 =  hypot(a_[3], d_[3]);
+	double sudo_s4 =  hypot(a_[3], d_[3]);
     double angle_xyz;
     double wristToJoint2_length;
     double xyRadius2 = sqr(p.x()) + sqr(p.y()) - sqr(d_[1] + d_[2]);
@@ -242,23 +242,23 @@ void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
     branchFlags.resize(3, eBranchLeft);
     // 4 turn flags, actually only 3 turn flags (because joint 3 is prismatic
     jointTurns.resize(6, 0);
-    std::vector<double> q_tmp = theta;
+    Eigen::VectorXd q_tmp = theta;
     // jnt 2, 3 converted to angles about vertical "home position"
-    q_tmp[1] += M_PI / 2.0;
-    q_tmp[2] -= M_PI / 2.0;
+    q_tmp(1) += M_PI / 2.0;
+    q_tmp(2) -= M_PI / 2.0;
 
     //strs.str("");
     for (size_t i=0; i < DoF_; i++) {
         //strs << " joint " << i << " = " << q_tmp[i] << ", theta=" << theta_[i];
-        jointTurns[i] = std::floor(q_tmp[i] / (2 * M_PI));
-        double tmp_q = q_tmp[i] - jointTurns[i] * 2 * M_PI;
+        jointTurns[i] = std::floor(q_tmp(i) / (2 * M_PI));
+        double tmp_q = q_tmp(i) - jointTurns[i] * 2 * M_PI;
         // then make sure [-PI, PI]
         // to have 0 turn here
         if (tmp_q > M_PI) {
             jointTurns[i] += 1;
             tmp_q -= 2 * M_PI;
         }
-        q_tmp[i] = tmp_q;
+        q_tmp(i) = tmp_q;
 
         if (i==2) { // for above and below (or elbow up and down)
             double phi_s4_a3 = atan(a_[3] / d_[3]);
@@ -285,8 +285,8 @@ void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
     // q_tmp[1] -= theta_[1];
     // q_tmp[2] -= theta_[2];
     // we followed kuka manual for overhead calculation
-    double xAtFrame1 = a_[1] + a_[2] * sin(q_tmp[1]) + 
-                    d_[3] * sin(q_tmp[1] + q_tmp[2]) + a_[3] * cos(q_tmp[1] + q_tmp[2]);
+    double xAtFrame1 = a_[1] + a_[2] * sin(q_tmp(1)) + 
+                    d_[3] * sin(q_tmp(1) + q_tmp(2)) + a_[3] * cos(q_tmp(1) + q_tmp(2));
     if (xAtFrame1 >= 0) {
        branchFlags[0] = 1; // no overhead , basic, or right(for mitsubishi)
     } else {
