@@ -80,6 +80,8 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   double a_b1_;
   // extra offset angle of large arm because of c1_
   double delta1_;
+  // characteristic length
+  double char_length_;
 
   // there are two branch flags here
   // it picks which root one-by-one until finding the correct solution in

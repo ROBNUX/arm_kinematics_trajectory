@@ -521,8 +521,9 @@ int QuattroK::CalcJacobian(const Eigen::VectorXd& kine_para,
 }
 int QuattroK::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
                           Eigen::VectorXd& qpassive) {
-  if (qpassive->size() != 17) {
-    qpassive->resize(17, 0);
+  if (qpassive.size() != 17) {
+    qpassive.resize(17);
+    qpassive.setZero();
   }
   // there are totally 13 passive joints (and additional 4 passive joints,
   // the ones which are in the parallelogram rotating longer side, are

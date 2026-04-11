@@ -65,6 +65,8 @@ class KINEMATICS_API Quattro : public BaseKinematicMap {
   double delta1_;
   // diff between static/moving platform radius
   double diff_radius_;
+  // characteristic length
+  double char_length_;
   // branch flags
   std::vector<int> branchFlags_;
   // turn flags

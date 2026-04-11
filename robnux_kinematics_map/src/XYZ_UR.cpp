@@ -191,11 +191,11 @@ int XYZ_UR::JntToCart(const Eigen::VectorXd& q,
   q2dot << qdot(3), qdot(4);
   Pose pXYZ, pUR;
   Twist vXYZ, vUR;
-  int ret = XYZ->JntToCart(q1, q1dot, &pXYZ, &vXYZ);
+  int ret = XYZ->JntToCart(q1, q1dot, pXYZ, vXYZ);
   if (ret < 0) {
     return ret;
   }
-  ret = UR->JntToCart(q2, q2dot, &pUR, &vUR);
+  ret = UR->JntToCart(q2, q2dot, pUR, vUR);
   if (ret < 0) {
     return ret;
   }
@@ -251,7 +251,7 @@ int XYZ_UR::CartToJnt(const Pose& p, const Twist& v,
   }
   // over_jnt=[XYZ_jnt, UR_jnt]
   q.segment(0, XYZ->GetDoF()) = qXYZ;
-  q.segment(XYZ->GetDoF(), UR->GetDoF()) = qUR
+  q.segment(XYZ->GetDoF(), UR->GetDoF()) = qUR;
 
   if (qdot.size() < DoF_) {
     qdot.resize(DoF_);
@@ -302,17 +302,17 @@ int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
   Pose pXYZ, pUR;
   Eigen::MatrixXd Jp_t_XYZ, Jp_r_XYZ;
   Eigen::MatrixXd Jp_t_UR, Jp_r_UR;
-  int ret = XYZ->CalcJacobian(dh_XYZ, pXYZ, Jp_t_XYZ, Jp_r_XYZ, reduction);
+  int ret = XYZ->CalcJacobian(dh_XYZ, pXYZ, Jp_t_XYZ, Jp_r_XYZ, world_jac);
   if (ret < 0) {
     return ret;
   }
 
-  ret = UR->CalcJacobian(dh_UR, pUR, Jp_t_UR, Jp_r_UR, reduction);
+  ret = UR->CalcJacobian(dh_UR, pUR, Jp_t_UR, Jp_r_UR, world_jac);
   if (ret < 0) {
     return ret;
   }
   Frame fr(pUR.getRotation(), pXYZ.getTranslation());
-  p->setFrame(fr);
+  p.setFrame(fr);
   
   // turns and flags
   std::vector<int>  jntTurns1, jntTurns2, jntTurns;
@@ -448,7 +448,7 @@ void XYZ_UR::SetUseCalibrated(const bool useCalibrated) {
   }
 
   
-  void XYZ_UR::resetCalibration() {
+  void XYZ_UR::ResetCalibration() {
     std::ostringstream strs;
     if (!initialized_) {
       strs.str("");
@@ -456,7 +456,7 @@ void XYZ_UR::SetUseCalibrated(const bool useCalibrated) {
                 << " in function "
                 << __FUNCTION__ << ", line " << __LINE__ << std::endl;
       LOG_ERROR(strs);
-      return false; 
+      return;
     }
     isDHCalibrated_ = false;
     XYZ->ResetCalibration();

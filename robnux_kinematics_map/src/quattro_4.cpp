@@ -434,8 +434,8 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, Eigen::VectorXd& q,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     Vec V2i(a_b1_ * cq * ca, a_b1_ * cq * sa, -a_b1_ * sq);
     Vec Ax1i(-sa, ca, 0);
     Vec tipi = Vec(R1_ * ca, R1_ * sa, 0) + V2i;
@@ -527,8 +527,8 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     double angle = alpha_ + i * 2 * M_PI / A_DoF_;
     double ca = cos(angle);
     double sa = sin(angle);
-    double cq = cos((*q)(i) + delta1_);
-    double sq = sin((*q)(i) + delta1_);
+    double cq = cos(q(i) + delta1_);
+    double sq = sin(q(i) + delta1_);
     // step 2, calculate Jacobian matrix
     // J1 qdot = M Pdot, J1 is a diagnal matrix diag( Ax1i * V2i)^T V3i
     // where Ax1i is the unit vector passing through the axis of joint i
@@ -539,7 +539,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     Vec Ax1i(-sa, ca, 0);
     Vec tipi = Vec(R1_ * ca, R1_ * sa, 0) + V2i;
     Vec V3i = PP1 - tipi;
-    Vec V3idot = PP1dot - (Ax1i * V2i) * (*qdot)(i);
+    Vec V3idot = PP1dot - (Ax1i * V2i) * qdot(i);
     double VRyawdot_sq;
     if (i < 2) {
       VRyawdot_sq = V3i.dot(V0dot) * yawdot_sq;
@@ -558,7 +558,7 @@ int Quattro_4::CartToJnt(const Pose& p, const Twist& v, const Twist& a,
     }
 
     righti += -VRyawdot_sq - sq_V3idot -
-              V3i_c_Ax1i_dot_Ax1i_c_V2i * (*qdot)(i) * (*qdot)(i);
+              V3i_c_Ax1i_dot_Ax1i_c_V2i * qdot(i) * qdot(i);
 
     if (abs(diagJ1i) < K_EPSILON) {
       strs.str("");
