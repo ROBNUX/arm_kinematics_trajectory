@@ -51,7 +51,7 @@ bool TrajectorySegment::setBoundCond(const Pose &start_pos,
     LOG_ERROR(ss);
     return false;
   }
-  int ret = armMap_->CartToJnt(start_pos, &sq_);
+  int ret = armMap_->CartToJnt(start_pos, sq_);
   if (ret < 0) {
     ss.str("");
     ss << "IK for computing starting jnt fails in " << __FUNCTION__
@@ -268,7 +268,7 @@ bool TrajectorySegment::Trajectory(const double time, Eigen::VectorXd *jp,
     LOG_ERROR(ss);
     return false;
   }
-  int ret = armMap_->CartToJnt(ps, tw, jp, jv);
+  int ret = armMap_->CartToJnt(ps, tw, *jp, *jv);
   if (ret >= 0) {
     *ja = Eigen::VectorXd::Zero(jp->size());
     return true;

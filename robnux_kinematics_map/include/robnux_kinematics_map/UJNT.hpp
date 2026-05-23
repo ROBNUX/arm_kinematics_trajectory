@@ -9,7 +9,7 @@
 
 namespace kinematics_lib {
 //! UJNT (R-R) modules, which combined with XYZ constitutes the 5-axis module
-class KINEMATICS_API UJNT : public serialArm {
+class KINEMATICS_API UJNT : public virtual serialArm {
  public:
   UJNT();
 

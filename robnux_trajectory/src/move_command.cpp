@@ -12,8 +12,8 @@ PTPMotionCommand::PTPMotionCommand(
   if (!armKM) {
     return;  // if kinematics pointer is null, return directly
   }
-  int errCode1 = armKM->CartToJnt(start_, &start_jnt_);
-  int errCode2 = armKM->CartToJnt(goal_, &goal_jnt_);
+  int errCode1 = armKM->CartToJnt(start_, start_jnt_);
+  int errCode2 = armKM->CartToJnt(goal_, goal_jnt_);
   if (errCode1 < 0 || errCode2 < 0) {
     strs.str("");
     strs << "Inverse kinematics error with error code 1: " << errCode1

@@ -261,6 +261,21 @@ int XYZ_UR::CartToJnt(const Pose& p, const Twist& v,
   return 0;
 }
  
+int XYZ_UR::JntToCart(const Eigen::VectorXd& /*q*/,
+                      const Eigen::VectorXd& /*qdot*/,
+                      const Eigen::VectorXd& /*qddot*/, Pose& /*p*/,
+                      Twist& /*v*/, Twist& /*a*/) {
+  // Acceleration-level FK not implemented for XYZ_UR.
+  return -1;
+}
+
+int XYZ_UR::CartToJnt(const Pose& /*p*/, const Twist& /*v*/,
+                      const Twist& /*a*/, Eigen::VectorXd& /*q*/,
+                      Eigen::VectorXd& /*qdot*/, Eigen::VectorXd& /*qddot*/) {
+  // Acceleration-level IK not implemented for XYZ_UR.
+  return -1;
+}
+
 int XYZ_UR::CalcJacobian(const Eigen::VectorXd& kine_para,
                           Pose& p,
                           Eigen::MatrixXd& Jp_t,  // for XYZ

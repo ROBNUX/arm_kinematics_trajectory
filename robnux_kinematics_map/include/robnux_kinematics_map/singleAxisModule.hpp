@@ -9,7 +9,7 @@
 
 namespace kinematics_lib {
    
-class KINEMATICS_API singleAxisModule : public serialArm {
+class KINEMATICS_API singleAxisModule : public virtual serialArm {
  public:
   singleAxisModule();
 

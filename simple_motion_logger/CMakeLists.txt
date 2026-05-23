@@ -7,10 +7,6 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 
-include_directories(
-    include
-  )
-
 ament_export_include_directories(include)
 
 if (WIN32)
@@ -26,6 +22,12 @@ INSTALL(DIRECTORY include/
 
 add_library(${PROJECT_NAME} SHARED
             src/Logger.cpp)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL LOGGER_EXPORTS)
 
 install(TARGETS ${PROJECT_NAME}

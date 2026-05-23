@@ -11,19 +11,19 @@ find_package(simple_motion_logger REQUIRED)
 find_package(robnux_kdl_common REQUIRED)
 find_package(Eigen3 REQUIRED)
 
-include_directories(
-  include
-  ${simple_motion_logger_INCLUDE_DIRS}
-  ${robnux_kdl_common_INCLUDE_DIRS}
-  ${EIGEN3_INCLUDE_DIRS}
-)
-
 file(GLOB_RECURSE KINEMATICS_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
 add_library(${PROJECT_NAME} SHARED ${KINEMATICS_SOURCES})
 
+# Attach the include path to the target so the exported imported target
+# (robnux_kinematics_map::robnux_kinematics_map) carries
+# INTERFACE_INCLUDE_DIRECTORIES for downstream consumers.
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
 
 target_link_libraries(${PROJECT_NAME}
     Eigen3::Eigen
@@ -57,6 +57,7 @@ install(FILES kinematics_plugin.xml
 
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(simple_motion_logger robnux_kdl_common pluginlib)
 
 ament_package()

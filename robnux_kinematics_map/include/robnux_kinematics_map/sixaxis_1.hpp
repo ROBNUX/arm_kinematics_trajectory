@@ -8,7 +8,7 @@
 #include "pluginlib/class_list_macros.hpp"
 namespace kinematics_lib {
    
-class KINEMATICS_API SixAxis_1 : public serialArm {
+class KINEMATICS_API SixAxis_1 : public virtual serialArm {
  public:
   SixAxis_1();
 

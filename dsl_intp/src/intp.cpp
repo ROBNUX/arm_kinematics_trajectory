@@ -33,7 +33,9 @@ namespace kinematics_lib{
       return;
     }
     armMap_->SetGeometry(kine_para);
-    armMap_->SetDefaultBaseOff(defaultBaseOff, defaultSubBaseOff);
+    armMap_->SetDefaultBaseOff(defaultBaseOff);
+    (void)defaultSubBaseOff;  // SubBaseOff was removed from BaseKinematicMap API;
+                              // keep the ctor parameter for API stability.
     // initialize base and tool frame data sets to identity default frame
     bases_.resize(8, Frame());
     tools_.resize(8, Frame());
@@ -101,15 +103,12 @@ namespace kinematics_lib{
         traj_thread_.join();
       }
       armMap_.reset();
-      armMap_ = nullptr;
       tjBuff_.reset();
-      tjBuff_ = nullptr;
       node_.reset();
-      node_ = nullptr;
     }
-    // all other std::share_ptr will automatically be cleaned out after here
+    // remaining shared_ptr members (publishers, etc.) are cleaned up by RAII
   }
-  
+
   void CreateRobot::ShutDown() {
     if (initialized_) {
       shutdown_ = true;
@@ -120,11 +119,8 @@ namespace kinematics_lib{
         traj_thread_.join();
       }
       tjBuff_.reset();
-      tjBuff_ = nullptr;
       armMap_.reset();
-      armMap_ = nullptr;
       node_.reset();
-      node_ = nullptr;
       initialized_ = false;
     }
   }
@@ -235,7 +231,7 @@ namespace kinematics_lib{
     Pose d_ps;
     
     //rps.getDefaultPose(&d_ps);
-    armMap_->JntToCart(jnt, &d_ps); // in simulation, 
+    armMap_->JntToCart(jnt, d_ps); // in simulation, 
       // we always choose canonical model
       // publish Joint angles to rviz or to robot controller
     publishJnt(jnt, d_ps);
@@ -303,7 +299,7 @@ namespace kinematics_lib{
     last_jp_d_ = jnt;
     // apply FK to obtain the current_pose
     Pose ps;
-    if (armMap_->JntToCart(current_jp_, &ps) == 0) {
+    if (armMap_->JntToCart(current_jp_, ps) == 0) {
       current_pose_.setDefaultPose(ps);
       // very last goal is set to current_pose_ here before executing any motion commands
       last_goal_ = current_pose_;
@@ -368,7 +364,7 @@ namespace kinematics_lib{
     if (!rp.getDefaultPose(&goalPose)) {
       return false;
     }
-    if (armMap_->CartToJnt(goalPose, &last_jp_d_) < 0) {
+    if (armMap_->CartToJnt(goalPose, last_jp_d_) < 0) {
         strs.str("");
         strs <<  " IK of goal pose= " << goalPose.ToString(true)
          << " fails in function " << __FUNCTION__ <<
@@ -458,7 +454,7 @@ namespace kinematics_lib{
     if (!last_goal_.getDefaultPose(&startPose)) {
       return false;
     }
-    if (armMap_->CartToJnt(goalPose, &last_jp_d_) < 0) {
+    if (armMap_->CartToJnt(goalPose, last_jp_d_) < 0) {
         strs.str("");
         strs <<  " IK of goal pose= " << goalPose.ToString(true)
          << " fails in function " << __FUNCTION__ <<
@@ -521,7 +517,7 @@ namespace kinematics_lib{
     if (!rp.getDefaultPose(&goalPose)) {
         return false;
     }
-    if (armMap_->CartToJnt(goalPose, &last_jp_d_) < 0) {
+    if (armMap_->CartToJnt(goalPose, last_jp_d_) < 0) {
         strs.str("");
         strs <<  " IK of goal pose= " << goalPose.ToString(true)
          << " fails in function " << __FUNCTION__ <<
@@ -605,7 +601,7 @@ namespace kinematics_lib{
       return false;
     }
     
-    if (armMap_->JntToCart(jnt, &goalPose) < 0) {
+    if (armMap_->JntToCart(jnt, goalPose) < 0) {
         strs.str("");
         strs <<  " FK of jnt= " << jnt
          << " fails in function " << __FUNCTION__ <<
@@ -771,10 +767,10 @@ namespace kinematics_lib{
     auto msgs = std::make_shared<sensor_msgs::msg::JointState>();
     msgs->header.stamp = node_->get_clock()->now();
 
-    msgs->name = *armMap_->GetJntNames();
+    msgs->name = armMap_->GetJntNames();
     // tmp.insert(tmp.end(), jnt_a.begin(), jnt_a.end());
     Eigen::VectorXd jnt_p;
-    if (!armMap_->CalcPassive(jnt_a, pose, &jnt_p)) {
+    if (!armMap_->CalcPassive(jnt_a, pose, jnt_p)) {
       Eigen::VectorXd tmp(jnt_a.size() + jnt_p.size());
       tmp.segment(0, jnt_a.size()) = jnt_a;
       tmp.segment(jnt_a.size(), jnt_p.size()) = jnt_p; 
@@ -800,7 +796,7 @@ namespace kinematics_lib{
         jnt1[i] = jnt(i);
     }
      */ 
-    armMap_->JntToCart(jnt, &rps); // from default world to default tool, even if robot base is not
+    armMap_->JntToCart(jnt, rps); // from default world to default tool, even if robot base is not
                                     // identity, we still can use SetCalibMode to incorporate the base_off
     strs.str("");
     strs << "after jtocart, p=" << rps.getTranslation().ToString() << std::endl;
@@ -853,7 +849,7 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
         jnt1[i] = jnt(i);
     }
      */ 
-    if (armMap_->JntToCart(jnt, &ps) <0) {// from default world to default tool, even if robot base is not
+    if (armMap_->JntToCart(jnt, ps) <0) {// from default world to default tool, even if robot base is not
                                     // identity, we still can use SetCalibMode to incorporate the base_off
       return false;
     
@@ -898,7 +894,7 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
         jnt1[i] = jnt(i);
     }
      */ 
-    if (armMap_->JntToCart(jnt, &rps) <0) {// from default world to default tool, even if robot base is not
+    if (armMap_->JntToCart(jnt, rps) <0) {// from default world to default tool, even if robot base is not
                                     // identity, we still can use SetCalibMode to incorporate the base_off
       return false;
     
@@ -978,7 +974,7 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
     //strs << "under default base, the pose is " << ps.ToString(true) << std::endl;
     //LOG_INFO(strs);
 
-    if (armMap_->CartToJnt(ps, &jnt1) < 0) {
+    if (armMap_->CartToJnt(ps, jnt1) < 0) {
       return false;
     }
     /*
@@ -1038,7 +1034,7 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
     //strs << "under default base, the pose is " << ps.ToString(true) << std::endl;
     //LOG_INFO(strs);
 
-    if (armMap_->CartToJnt(ps, &jnt1) < 0) {
+    if (armMap_->CartToJnt(ps, jnt1) < 0) {
       return false;
     }
     /*

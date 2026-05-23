@@ -8,7 +8,7 @@
 
 namespace kinematics_lib {
 
-class KINEMATICS_API Scara : public serialArm {
+class KINEMATICS_API Scara : public virtual serialArm {
  public:
   Scara();
 

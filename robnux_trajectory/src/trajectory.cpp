@@ -31,7 +31,7 @@ bool JntTrajectory::Trajectory(const double time, Pose *p, Twist *v,
   Eigen::VectorXd q, qdot, qddot;
   Pose ps;
   if (this->Trajectory(time, &q, &qdot, &qddot)) {
-    int ret = armMap_->JntToCart(q, qdot, &ps, v);
+    int ret = armMap_->JntToCart(q, qdot, ps, *v);
     if (ret >= 0) {
       if (ps.getFrame(p)) {
         *a = Twist::Zero();
@@ -130,14 +130,14 @@ bool JntTrajectory::setBoundaryCond(const Pose &start_pos,
     return false;
   }
   Eigen::VectorXd sj, sv, ej, ev;
-  if (armMap_->CartToJnt(start_pos, start_vel, &sj, &sv) < 0) {
+  if (armMap_->CartToJnt(start_pos, start_vel, sj, sv) < 0) {
     ss.str("");
     ss << "The IK map fails in function " << __FUNCTION__ << ", at line "
        << __LINE__ << std::endl;
     LOG_ERROR(ss);
     return false;
   }
-  if (armMap_->CartToJnt(end_pos, end_vel, &ej, &ev) < 0) {
+  if (armMap_->CartToJnt(end_pos, end_vel, ej, ev) < 0) {
     ss.str("");
     ss << "The IK map fails in function " << __FUNCTION__ << ", at line "
        << __LINE__ << std::endl;

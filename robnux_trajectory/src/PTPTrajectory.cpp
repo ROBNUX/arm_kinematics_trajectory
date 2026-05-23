@@ -90,14 +90,14 @@ bool PTPTrajectory::setBoundaryCond(const Pose &start_pos,
   }
   Eigen::VectorXd start_jp(numJnts_), start_jv(numJnts_), end_jp(numJnts_),
       end_jv(numJnts_);
-  if (armMap_->CartToJnt(start_pos, start_vel, &start_jp, &start_jv) < 0) {
+  if (armMap_->CartToJnt(start_pos, start_vel, start_jp, start_jv) < 0) {
     ss.str("");
     std::cout << "The IK map of start pose/vel fails, in function "
               << __FUNCTION__ << ", at line " << __LINE__ << std::endl;
     LOG_ERROR(ss);
     return false;
   }
-  if (armMap_->CartToJnt(end_pos, end_vel, &end_jp, &end_jv) < 0) {
+  if (armMap_->CartToJnt(end_pos, end_vel, end_jp, end_jv) < 0) {
     ss.str("");
     std::cout << "The IK map of end pose/vel fails, in function "
               << __FUNCTION__ << ", at line " << __LINE__ << std::endl;
