@@ -59,4 +59,13 @@ ament_export_dependencies(
 )
 
 ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_trajectory test/test_trajectory.cpp)
+  ament_target_dependencies(test_trajectory
+    simple_motion_logger robnux_kdl_common robnux_kinematics_map scurve_lib)
+  target_link_libraries(test_trajectory ${PROJECT_NAME})
+endif()
+
 ament_package()

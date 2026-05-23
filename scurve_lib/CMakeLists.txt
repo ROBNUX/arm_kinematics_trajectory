@@ -65,4 +65,11 @@ add_executable(testTrajMidPoint test/testTrajSegmentMidPoints.cpp)
 ament_target_dependencies(testTrajMidPoint simple_motion_logger Eigen3)
 target_link_libraries(testTrajMidPoint ${PROJECT_NAME})
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_scurve test/test_scurve.cpp)
+  ament_target_dependencies(test_scurve simple_motion_logger Eigen3)
+  target_link_libraries(test_scurve ${PROJECT_NAME})
+endif()
+
 ament_package()

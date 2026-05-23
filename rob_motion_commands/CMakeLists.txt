@@ -50,9 +50,38 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 ament_get_python_install_dir(PYTHON_INSTALL_DIR)
-ament_python_install_package(${PROJECT_NAME})
+# Register the PYTHONPATH environment hook (normally triggered by
+# ament_python_install_package / ament_python_install_module). We can't use
+# either of those because we install only a .so, not a Python source package
+# or .py file. Invoking the internal macro keeps the env-hook setup without
+# also installing a wrapper __init__.py that would shadow the extension.
+_ament_cmake_python_register_environment_hook()
+
 install(TARGETS ${PROJECT_NAME}
-  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
+  DESTINATION "${PYTHON_INSTALL_DIR}"
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
+
+  ament_add_gtest(test_geometric_types test/test_geometric_types.cpp)
+  target_include_directories(test_geometric_types PRIVATE
+    ${robnux_kdl_common_INCLUDE_DIRS}
+    ${robnux_trajectory_INCLUDE_DIRS}
+    ${robnux_kinematics_map_INCLUDE_DIRS}
+    ${simple_motion_logger_INCLUDE_DIRS}
+  )
+  target_link_libraries(test_geometric_types
+    robnux_kdl_common::robnux_kdl_common
+    robnux_trajectory::robnux_trajectory
+    simple_motion_logger::simple_motion_logger
+    Eigen3::Eigen
+  )
+
+  ament_add_pytest_test(test_bindings test/test_bindings.py
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  )
+endif()
 
 ament_package()

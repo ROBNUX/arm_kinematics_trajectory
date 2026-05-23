@@ -114,4 +114,14 @@ install(TARGETS testIntp
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_intp test/test_intp.cpp)
+  ament_target_dependencies(test_intp
+    rclcpp simple_motion_logger robnux_kdl_common robnux_kinematics_map
+    robnux_trajectory pluginlib scurve_lib Eigen3
+    sensor_msgs geometry_msgs std_msgs)
+  target_link_libraries(test_intp ${PROJECT_NAME})
+endif()
+
 ament_package()

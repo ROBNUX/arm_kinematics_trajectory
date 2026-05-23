@@ -60,5 +60,11 @@ ament_export_libraries(${PROJECT_NAME})
 ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(simple_motion_logger robnux_kdl_common pluginlib)
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_kinematics_map test/test_kinematics_map.cpp)
+  target_link_libraries(test_kinematics_map ${PROJECT_NAME})
+endif()
+
 ament_package()
 

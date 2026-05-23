@@ -46,4 +46,10 @@ install(TARGETS testLogger
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_logger test/test_logger.cpp)
+  target_link_libraries(test_logger ${PROJECT_NAME})
+endif()
+
 ament_package()

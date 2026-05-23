@@ -47,6 +47,12 @@ ament_export_dependencies(
 
 ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_kdl_common test/test_kdl_common.cpp)
+  target_link_libraries(test_kdl_common ${PROJECT_NAME})
+endif()
+
 ament_package()
 
 

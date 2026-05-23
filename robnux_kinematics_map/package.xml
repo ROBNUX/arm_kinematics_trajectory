@@ -24,6 +24,8 @@
     <exec_depend>robnux_kdl_common</exec_depend>
     <exec_depend>pluginlib</exec_depend>
 
+    <test_depend>ament_cmake_gtest</test_depend>
+
     <export>
         <pluginlib plugin="${prefix}/kinematics_plugin.xml" />
     </export>
