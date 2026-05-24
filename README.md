@@ -1,46 +1,103 @@
 # arm_kinematics_trajectory
-Kinematics, trajectectory planning and control library, and robot programming (script) language of robotic arms. It
-depends on Eigen3, pybind11, and ros. It fits into the framework of ros, and can be compiled with catkin, and run along
-with ros.
 
-This repo. contains a 7-segment S-curve profile interpolation algorithm for pos/speed/acceleration/jerk planning.
-It also contains continuous smooth trajectory interpolation that creates smooth transitions between multiple
-trajectory segments.
+A ROS 2 workspace of C++ libraries (with Python bindings) for robotic-arm
+kinematics, trajectory planning, and motion control. Includes a 7-segment
+jerk-limited S-curve profiler, smooth multi-segment trajectories, FK/IK for
+several robot families, and a small Python scripting layer for writing
+robot programs.
 
-![Screenshot from 2025-02-03 07-34-12](https://github.com/user-attachments/assets/b2073038-814c-4f3c-a8f6-55845c33fbd1)
+![Smooth multi-segment trajectory](https://github.com/user-attachments/assets/b2073038-814c-4f3c-a8f6-55845c33fbd1)
 
+## Packages
 
-Second, this repo. provides forward/inverse kinematics for scara/quattro/quattroK (keba convention) / quattro_4 (quattro
-with 4th rotational DoF).
+| Package | Purpose |
+|---|---|
+| [`simple_motion_logger`](simple_motion_logger/) | Thread-safe logger singleton used across the workspace |
+| [`scurve_lib`](scurve_lib/) | Polynomial pieces + jerk-limited segment planning utilities |
+| [`robnux_kdl_common`](robnux_kdl_common/) | `Vec`, `Quaternion`, `Rotation`, `Frame`, `Pose`, `refPose`, `Twist`, `Wrench` — foundational geometry types |
+| [`robnux_kinematics_map`](robnux_kinematics_map/) | FK/IK plugin classes for Scara, Six-axis, Single-axis, UJNT, XYZ gantry, XYZ+UR, and three Quattro variants |
+| [`robnux_trajectory`](robnux_trajectory/) | `SCurveProfile`, line/arc Cartesian trajectories, joint-space PTP, trajectory buffer, command queue |
+| [`dsl_intp`](dsl_intp/) | `CreateRobot` interpreter — accepts robot-script commands and produces a trajectory buffer; publishes to ROS 2 topics for rviz/gazebo |
+| [`rob_motion_commands`](rob_motion_commands/) | pybind11 module exposing all the above to Python |
+| [`quattro_bot`](quattro_bot/) | Launch files, rviz configs, and meshes for the Quattro parallel robot |
+| [`test_robot_language_script`](test_robot_language_script/) | Demo Python robot programs |
 
-Third, this repo. provides a way to create robot programming language (scripting) based upon python c++ binding. (Note
-this will require installing pybind11 first). All robot motion commands will be installed in rob_commands  python extension.
-For example:
+## Dependencies
 
-    from rob_commands import *
+ROS 2 (Humble or newer), Eigen3, pybind11, pluginlib, `rclcpp`,
+`sensor_msgs` / `geometry_msgs` / `std_msgs`. Tests additionally need
+`ament_cmake_gtest`.
 
-    pf = Profile(2, 50, 1500, 2, 50, 1500)   #cartesian profile (max_vel, max_acc, max_jerk, angular_max_vel, angular_max_acc, angular_max_jerk )
-    
-    jpf = JntProfile(20, 50, 200)   # joint space profile (jnt_max_vel, jnt_max_acc, jnt_max_jerk)
+## Build
 
-    para = np.array([[0.3, -math.pi/2.0, 0.4, 0, 1.02, 0.1, 0, 0.18 * math.sqrt(2)]]).T   # kinematic parameters (check code for the definition of these values)
+```bash
+cd ~/your_ws/src
+git clone <this-repo>          # provides arm_kinematics_trajectory
+cd ..
+colcon build
+source install/setup.bash
+```
 
-    defaultBaseOff = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T   # where, w.r.t. world frame, install your robot
-    
-    rob = Robot("quattro", para, defaultBaseOff, defaultBaseOff, pf)   # create Robot object
-    
-    loc1 = LocData(0.4, 0.4,-0.75, 0,0,0, cfg, turns)     # define a location data
-    
-    fd = FrameData(1,1, WORLD)     # define a frame data, base no, tool no, interpolation frame
-    
-    rob.MoveLine(loc1, fd, 10)    # robot performs a straight line motion toward loc1
-    
-Users can refer to test_script/testQuattro.py for how to use robot commands in python language
+## Run the tests
 
+```bash
+colcon test --packages-select \
+  simple_motion_logger scurve_lib robnux_kdl_common \
+  robnux_kinematics_map robnux_trajectory dsl_intp rob_motion_commands
+colcon test-result --verbose
+```
 
-Also, this repo. provides many primitive robot motion commands (LINE, PTP, ARC, PTPR, LINER, etc.).
-Users can do lots of customization for their application needs.
+Each library package ships a focused C++ gtest suite under `test/`.
+`rob_motion_commands` additionally has a pytest suite exercising the
+bindings end-to-end.
 
-Finally, this repo. leaves hook for robot program line mapping for supporting  one step motion forward or
-one step motion backward.
+## Python quickstart
 
+```python
+import math
+import numpy as np
+from rob_motion_commands import (
+    Robot, Profile, JntProfile, LocData, FrameData,
+    IpoMode, WORLD,
+)
+
+# Cartesian profile (max_vel_t, max_acc_t, max_jerk_t,
+#                    max_vel_r, max_acc_r, max_jerk_r)
+pf = Profile(2, 50, 1500, 2, 50, 1500)
+
+# Joint-space profile (per-joint vel/acc/jerk caps)
+jpf = JntProfile(20, 50, 200)
+
+# Kinematic parameters for the chosen plugin — see each robot's header
+# for the parameter layout.
+para = np.array([0.3, -math.pi / 2, 0.4, 0, 1.02, 0.1, 0,
+                 0.18 * math.sqrt(2)]).reshape(-1, 1)
+
+# Where the robot base sits in world coordinates (x, y, z, qw, qx, qy, qz).
+default_base = np.array([0, 0, 0, 1, 0, 0, 0]).reshape(-1, 1)
+
+robot = Robot("quattro", para, default_base, default_base, pf)
+
+target = LocData(0.4, 0.4, -0.75, 0, 0, 0, branch=0, turns=0)
+frame = FrameData(base=1, tool=1, ipo=IpoMode.WORLD)
+robot.MoveLine(target, frame, 10)   # straight-line move, 10 = blending %
+```
+
+More end-to-end examples live in [`rob_motion_commands/examples/`](rob_motion_commands/examples/)
+and [`test_robot_language_script/`](test_robot_language_script/).
+
+## Primitive motion commands
+
+Beyond the `Robot.Move*` API, the underlying C++ trajectory primitives are
+also available: `LIN`, `PTP`, `ARC`, `LIN_REL`, `PTP_REL`, plus joint-space
+`PTPJ`. The trajectory buffer leaves hooks for one-step-forward /
+one-step-backward debugging of robot programs.
+
+## ROS 2 lifecycle
+
+`Robot` (a.k.a. `CreateRobot`) creates a `rclcpp::Node` and publishers in
+its constructor for rviz/gazebo visualization. The pybind module
+initializes the ROS context on import and registers an `atexit` handler
+that calls `rclcpp::shutdown()` after Python destructors run — so simply
+importing `rob_motion_commands` is enough for the published topics to
+work, and clean teardown happens automatically at interpreter exit.
