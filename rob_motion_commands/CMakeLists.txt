@@ -50,15 +50,29 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 ament_get_python_install_dir(PYTHON_INSTALL_DIR)
-# Register the PYTHONPATH environment hook (normally triggered by
-# ament_python_install_package / ament_python_install_module). We can't use
-# either of those because we install only a .so, not a Python source package
-# or .py file. Invoking the internal macro keeps the env-hook setup without
-# also installing a wrapper __init__.py that would shadow the extension.
+# Install the extension module inside the rob_motion_commands/ Python package
+# so that `import rob_motion_commands` finds the package __init__.py (which
+# re-exports everything from the .so via `from .rob_motion_commands import *`).
 _ament_cmake_python_register_environment_hook()
 
 install(TARGETS ${PROJECT_NAME}
-  DESTINATION "${PYTHON_INSTALL_DIR}"
+  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
+)
+
+install(FILES rob_motion_commands/__init__.py
+  DESTINATION "${PYTHON_INSTALL_DIR}/${PROJECT_NAME}"
+)
+
+install(PROGRAMS
+  examples/01_geometric_types.py
+  examples/02_refpose_motion_types.py
+  examples/03_scurve_planner.py
+  examples/04_ros_lifecycle.py
+  examples/05_forward_inverse_kinematics.py
+  examples/06_cartesian_motion.py
+  examples/07_relative_motion.py
+  examples/08_joint_space_motion.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
