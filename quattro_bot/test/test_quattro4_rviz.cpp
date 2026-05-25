@@ -102,7 +102,7 @@ TestQuattro4Kinematics::TestQuattro4Kinematics()
         "goal", 1,
         std::bind(&TestQuattro4Kinematics::receiveGoal, this, std::placeholders::_1));
 
-     int ret = quattro_4_.JntToCart(jnts_a_, &pose_c_);
+     int ret = quattro_4_.JntToCart(jnts_a_, pose_c_);
      if (ret < 0) {
        RCLCPP_ERROR(get_logger(), "Forward kinematics failure, error code is, %d", ret);
      } else {
@@ -192,13 +192,13 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
       if (seg) {
           if (traj_time <= seg->Duration()) {
              seg->Trajectory(traj_time,  &tmp, &tw, &acctw);
-             int ret=quattro_4_.CartToJnt(tmp, &jnts_a_);
+             int ret=quattro_4_.CartToJnt(tmp, jnts_a_);
              if (ret ==0 ) {
                  RCLCPP_INFO(get_logger(), "planned pose trans=%s, quat=%s",
                  tmp.getTranslation().ToString().c_str(),
                  tmp.getQuaternion().ToString(false).c_str());
-                
-                 int ret2=quattro_4_.JntToCart(jnts_a_, &tmp);
+
+                 int ret2=quattro_4_.JntToCart(jnts_a_, tmp);
                  if (ret2 == 0) {
                    RCLCPP_INFO(get_logger(), "FK pose trans=%s, quat=%s",
                    tmp.getTranslation().ToString().c_str(),
@@ -206,9 +206,9 @@ void TestQuattro4Kinematics::motionControlLoop(const double frequency) {
                  } else {
                      RCLCPP_INFO(get_logger(), "FK pose verification fails");
                  }
-                
+
                  int ret1=quattro_4_.CalcPassive(jnts_a_, tmp,
-                          &jnts_p_);
+                          jnts_p_);
                  if (ret1==0) {
                    RCLCPP_INFO(get_logger(), "jnt cmd (%lf,%lf,%lf,%lf)", jnts_a_[0],
                          jnts_a_[1], jnts_a_[2], jnts_a_[3]);

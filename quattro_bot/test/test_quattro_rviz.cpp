@@ -95,7 +95,7 @@ TestQuattroKinematics::TestQuattroKinematics()
         "goal", 1,
         std::bind(&TestQuattroKinematics::receiveGoal, this, std::placeholders::_1));
     
-    int ret = quattro_.JntToCart(jnts_a_, &pose_c_);
+    int ret = quattro_.JntToCart(jnts_a_, pose_c_);
     if (ret < 0) {
        RCLCPP_ERROR(get_logger(), "Forward kinematics failure, error code is, %d", ret);
     } else {
@@ -165,10 +165,10 @@ void TestQuattroKinematics::motionControlLoop(const double frequency) {
           if (traj_time <= traj->Duration()) {
              traj->Trajectory(traj_time,  &temps, &tempv, &tempa);
              tmp.setTranslation(temps);
-             int ret=quattro_.CartToJnt(tmp, &jnts_a_);
+             int ret=quattro_.CartToJnt(tmp, jnts_a_);
              if (ret ==0 ) {
                  int ret1=quattro_.CalcPassive(jnts_a_, tmp,
-                          &jnts_p_);
+                          jnts_p_);
                  if (ret1==0) {
                    RCLCPP_INFO(get_logger(), "jnt cmd (%lf,%lf,%lf,%lf)", jnts_a_[0],
                          jnts_a_[1], jnts_a_[2], jnts_a_[3]);
