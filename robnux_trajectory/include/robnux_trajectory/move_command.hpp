@@ -115,8 +115,8 @@ class JntProfile {
       max_vel_ = pf.max_vel_;
       max_acc_ = pf.max_acc_;
       max_jerk_ = pf.max_jerk_;
-      return *this;
     }
+    return *this;
   }
   double max_vel_;
   double max_acc_;

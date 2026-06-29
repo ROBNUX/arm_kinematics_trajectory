@@ -28,7 +28,7 @@ namespace kinematics_lib{
     current_spd_percent_.vel_perc_ = 10;
     current_spd_percent_.acc_perc_ = 10;
     current_spd_percent_.jerk_perc_ = 10;
-    armMap_.reset(armMap_loader_.createClassInstance(robName));
+    armMap_.reset(armMap_loader_.createUnmanagedInstance(robName));
     if (!armMap_) {
       return;
     }
