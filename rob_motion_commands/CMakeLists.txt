@@ -7,6 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(dsl_intp REQUIRED)
 find_package(scurve_lib REQUIRED)
 find_package(robnux_trajectory REQUIRED)

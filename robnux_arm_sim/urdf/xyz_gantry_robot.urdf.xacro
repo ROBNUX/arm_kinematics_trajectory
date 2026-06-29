@@ -1,0 +1,179 @@
+<?xml version="1.0" ?>
+<!--
+  XYZGantry 3-DOF Cartesian robot URDF
+  Joints: JOINT_0_ACT (P/Z), JOINT_1_ACT (P/-Y), JOINT_2_ACT (P/X)
+
+  DH parameters used in simulation scripts (Craig convention):
+    alpha = [0,  PI/2, -PI/2]
+    a     = [0,  0,     0   ]
+    theta = [0,  0,     0   ]
+    d     = [0,  0,     0   ]  (zeros: workspace centered at origin)
+
+  IK mapping:
+    q(0) = (p.z - d[0]) / pitch[0]  -> Z stroke
+    q(1) = (-p.y - d[1]) / pitch[1] -> -Y stroke (positive q1 moves in -Y)
+    q(2) = (p.x - d[2]) / pitch[2]  -> X stroke
+
+  Workspace: X in [-0.5, 0.5], Y in [-0.5, 0.5], Z in [-0.3, 0.3]
+-->
+<robot name="xyz_gantry" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="RAIL_X"    value="1.2"/>  <!-- X-rail total length -->
+  <xacro:property name="RAIL_Y"    value="1.2"/>  <!-- Y-rail total length -->
+  <xacro:property name="RAIL_Z"    value="0.7"/>  <!-- Z-stroke total length -->
+  <xacro:property name="RAIL_W"    value="0.04"/>  <!-- rail cross-section width -->
+  <xacro:property name="CARRIAGE_S" value="0.08"/> <!-- carriage cube side -->
+  <xacro:property name="GANTRY_H"  value="1.0"/>  <!-- gantry frame height -->
+
+  <!-- world -->
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- gantry frame (fixed) -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${GANTRY_H/2}" rpy="0 0 0"/>
+      <mass value="30.0"/>
+      <inertia ixx="5.0" ixy="0" ixz="0" iyy="5.0" iyz="0" izz="2.0"/>
+    </inertial>
+
+    <!-- four vertical posts -->
+    <xacro:macro name="post" params="px py">
+      <visual>
+        <origin xyz="${px} ${py} ${GANTRY_H/2}" rpy="0 0 0"/>
+        <geometry><cylinder radius="0.025" length="${GANTRY_H}"/></geometry>
+        <material name="frame_grey"><color rgba="0.45 0.45 0.45 1"/></material>
+      </visual>
+    </xacro:macro>
+    <xacro:post px="${ RAIL_X/2}" py="${ RAIL_Y/2}"/>
+    <xacro:post px="${-RAIL_X/2}" py="${ RAIL_Y/2}"/>
+    <xacro:post px="${ RAIL_X/2}" py="${-RAIL_Y/2}"/>
+    <xacro:post px="${-RAIL_X/2}" py="${-RAIL_Y/2}"/>
+
+    <!-- X-rails at top (two rails, one at each Y side) -->
+    <visual>
+      <origin xyz="0 ${ RAIL_Y/2} ${GANTRY_H}" rpy="0 0 0"/>
+      <geometry><box size="${RAIL_X} ${RAIL_W} ${RAIL_W}"/></geometry>
+      <material name="rail_blue"><color rgba="0.1 0.2 0.8 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 ${-RAIL_Y/2} ${GANTRY_H}" rpy="0 0 0"/>
+      <geometry><box size="${RAIL_X} ${RAIL_W} ${RAIL_W}"/></geometry>
+      <material name="rail_blue"><color rgba="0.1 0.2 0.8 1"/></material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 ${GANTRY_H/2}" rpy="0 0 0"/>
+      <geometry><box size="${RAIL_X + 0.05} ${RAIL_Y + 0.05} ${RAIL_W}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J0: Z stroke (prismatic +Z or -Z) -->
+  <!-- This joint represents the vertical axis; origin at top center of gantry -->
+  <joint name="JOINT_0_ACT" type="prismatic">
+    <parent link="base_link"/>
+    <child  link="link_z_carriage"/>
+    <origin xyz="0 0 ${GANTRY_H}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-RAIL_Z * 0.8}" upper="0.0" effort="200" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <!-- Z carriage block + Y rail -->
+  <link name="link_z_carriage">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="3.0"/>
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.01"/>
+    </inertial>
+    <!-- Z carriage -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S} ${CARRIAGE_S} ${CARRIAGE_S}"/></geometry>
+      <material name="carriage_silver"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <!-- Y rail along this carriage -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${RAIL_W} ${RAIL_Y} ${RAIL_W}"/></geometry>
+      <material name="rail_green"><color rgba="0.1 0.7 0.2 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S} ${CARRIAGE_S} ${CARRIAGE_S}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J1: -Y stroke (prismatic -Y) -->
+  <joint name="JOINT_1_ACT" type="prismatic">
+    <parent link="link_z_carriage"/>
+    <child  link="link_y_carriage"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="${-RAIL_Y * 0.4}" upper="${RAIL_Y * 0.4}" effort="150" velocity="1.0"/>
+    <dynamics damping="0.1" friction="0.03"/>
+  </joint>
+
+  <!-- Y carriage + X rail -->
+  <link name="link_y_carriage">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="0.02" ixy="0" ixz="0" iyy="0.02" iyz="0" izz="0.005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S} ${CARRIAGE_S} ${CARRIAGE_S}"/></geometry>
+      <material name="carriage_silver"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <!-- X rail -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${RAIL_X} ${RAIL_W} ${RAIL_W}"/></geometry>
+      <material name="rail_red"><color rgba="0.8 0.1 0.1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S} ${CARRIAGE_S} ${CARRIAGE_S}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J2: X stroke (prismatic X) -->
+  <joint name="JOINT_2_ACT" type="prismatic">
+    <parent link="link_y_carriage"/>
+    <child  link="link_x_carriage"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="${-RAIL_X * 0.4}" upper="${RAIL_X * 0.4}" effort="150" velocity="1.0"/>
+    <dynamics damping="0.1" friction="0.03"/>
+  </joint>
+
+  <!-- TCP carriage -->
+  <link name="link_x_carriage">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S * 0.8} ${CARRIAGE_S * 0.8} ${CARRIAGE_S * 0.8}"/></geometry>
+      <material name="carriage_silver"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <!-- TCP marker -->
+    <visual>
+      <origin xyz="0 0 -0.04" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.012" length="0.05"/></geometry>
+      <material name="orange"><color rgba="1.0 0.5 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="${CARRIAGE_S * 0.8} ${CARRIAGE_S * 0.8} ${CARRIAGE_S * 0.8}"/></geometry>
+    </collision>
+  </link>
+
+</robot>

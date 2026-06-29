@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(simple_motion_logger REQUIRED)
 find_package(robnux_kdl_common REQUIRED)
@@ -30,6 +31,7 @@ ${scurve_lib_INCLUDE_DIRS}
 ${PYTHON_INCLUDE_DIRS}
 ${sensor_msgs_INCLUDE_DIRS}
 ${geometry_msgs_INCLUDE_DIRS}
+${nav_msgs_INCLUDE_DIRS}
 ${std_msgs_INCLUDE_DIRS}
 ${rclcpp_INCLUDE_DIRS}
 )
@@ -58,6 +60,10 @@ ament_target_dependencies(${PROJECT_NAME}
   Eigen3
   pluginlib
   scurve_lib
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  std_msgs
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES DEFINE_SYMBOL INTP_EXPORTS)
 

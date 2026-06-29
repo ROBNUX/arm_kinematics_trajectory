@@ -1,0 +1,190 @@
+<?xml version="1.0" ?>
+<!--
+  SCARA 4-DOF robot URDF (Mitsubishi convention)
+  Joints: JOINT_0_ACT (R/Z), JOINT_1_ACT (R/Z), JOINT_2_ACT (P/Z), JOINT_3_ACT (R/Z)
+
+  DH parameters used in simulation scripts:
+    alpha = [0, 0, 0, 0]
+    a     = [0, 0.3, 0.2, 0]    (upper arm 300 mm, forearm 200 mm)
+    theta = [0, 0, 0, 0]
+    d     = [0.3, 0, 0, -0.05]  (base height 300 mm, tool -50 mm)
+
+  Craig DH -> URDF joint origins:
+    JOINT_0_ACT: xyz=(0,0,d0)=(0,0,0.3)       in base_link
+    JOINT_1_ACT: xyz=(a1,0,0)=(0.3,0,0)       in link_1
+    JOINT_2_ACT: xyz=(a2,0,0)=(0.2,0,0)       in link_2, prismatic Z
+    JOINT_3_ACT: xyz=(0,0,d3)=(0,0,-0.05)     in link_3
+-->
+<robot name="scara_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="PI"         value="3.14159265358979"/>
+  <xacro:property name="D0"         value="0.30"/>  <!-- base column height -->
+  <xacro:property name="A1"         value="0.30"/>  <!-- upper arm length -->
+  <xacro:property name="A2"         value="0.20"/>  <!-- forearm length -->
+  <xacro:property name="D3"         value="-0.05"/> <!-- tool offset below wrist -->
+  <xacro:property name="ARM_RADIUS" value="0.018"/>
+  <xacro:property name="BASE_SIDE"  value="0.15"/>
+  <xacro:property name="BASE_H"     value="0.05"/>
+  <xacro:property name="ARM_MASS"   value="1.0"/>
+  <xacro:property name="BASE_MASS"  value="5.0"/>
+
+  <!-- ============================================================ world -->
+  <link name="world"/>
+
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================ base -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${BASE_H/2}" rpy="0 0 0"/>
+      <mass value="${BASE_MASS}"/>
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${BASE_H/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${BASE_SIDE} ${BASE_SIDE} ${BASE_H}"/>
+      </geometry>
+      <material name="grey">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${BASE_H/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${BASE_SIDE} ${BASE_SIDE} ${BASE_H}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J0: shoulder rotation (revolute Z) -->
+  <joint name="JOINT_0_ACT" type="revolute">
+    <parent link="base_link"/>
+    <child  link="link_1"/>
+    <origin xyz="0 0 ${D0}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="50" velocity="3.14"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <!-- shoulder hub + upper arm -->
+  <link name="link_1">
+    <inertial>
+      <origin xyz="${A1/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="${ARM_MASS}"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.001"/>
+    </inertial>
+    <!-- hub -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="0.04"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
+    </visual>
+    <!-- upper arm -->
+    <visual>
+      <origin xyz="${A1/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${ARM_RADIUS}" length="${A1}"/></geometry>
+      <material name="silver"><color rgba="0.8 0.8 0.85 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${A1/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${ARM_RADIUS}" length="${A1}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J1: elbow rotation (revolute Z) -->
+  <joint name="JOINT_1_ACT" type="revolute">
+    <parent link="link_1"/>
+    <child  link="link_2"/>
+    <origin xyz="${A1} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="30" velocity="3.14"/>
+    <dynamics damping="0.1" friction="0.1"/>
+  </joint>
+
+  <!-- elbow hub + forearm -->
+  <link name="link_2">
+    <inertial>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="${ARM_MASS * 0.6}"/>
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.0005"/>
+    </inertial>
+    <!-- elbow hub -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="0.035"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
+    </visual>
+    <!-- forearm -->
+    <visual>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${ARM_RADIUS * 0.85}" length="${A2}"/></geometry>
+      <material name="silver"><color rgba="0.8 0.8 0.85 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${ARM_RADIUS * 0.85}" length="${A2}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J2: Z stroke (prismatic Z) -->
+  <joint name="JOINT_2_ACT" type="prismatic">
+    <parent link="link_2"/>
+    <child  link="link_3"/>
+    <origin xyz="${A2} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.15" upper="0.05" effort="100" velocity="0.5"/>
+    <dynamics damping="0.05" friction="0.05"/>
+  </joint>
+
+  <!-- spindle / Z-stroke tube -->
+  <link name="link_3">
+    <inertial>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.12"/></geometry>
+      <material name="dark_grey"><color rgba="0.3 0.3 0.3 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.015" length="0.12"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ============================================================ J3: wrist rotation (revolute Z) -->
+  <joint name="JOINT_3_ACT" type="revolute">
+    <parent link="link_3"/>
+    <child  link="link_4"/>
+    <origin xyz="0 0 ${D3}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2*PI}" upper="${2*PI}" effort="10" velocity="6.28"/>
+    <dynamics damping="0.05" friction="0.05"/>
+  </joint>
+
+  <!-- tool / end-effector -->
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0 0 -0.02" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.02" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.01" length="0.04"/></geometry>
+      <material name="orange"><color rgba="1.0 0.5 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.02" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.01" length="0.04"/></geometry>
+    </collision>
+  </link>
+
+</robot>

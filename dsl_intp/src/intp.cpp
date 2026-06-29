@@ -11,7 +11,7 @@ namespace kinematics_lib{
                            const ProfileData& pf) : 
                                 time_scale_(1.0), // initial time scale is always 1.0
                                 pf_(pf),
-                                armMap_loader_("kinematics_map", "kinematics_lib::BaseKinematicMap"),
+                                armMap_loader_("robnux_kinematics_map", "kinematics_lib::BaseKinematicMap"),
                                 initialized_(false), // always not initialized in the beginning
                                 traj_task_sm_(0), rob_task_sm_(0),
                                 start_motion_(false),
@@ -69,7 +69,10 @@ namespace kinematics_lib{
 
     // initialize ROS2 publishers
     pub_joint_cmd_ = node_->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 2);
-    pub_cart_cmd_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("cart_pose", 2);
+    pub_cart_cmd_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("cart_pose", 10);
+    pub_rpy_ = node_->create_publisher<geometry_msgs::msg::Vector3Stamped>("arm_rpy", 10);
+    pub_path_ = node_->create_publisher<nav_msgs::msg::Path>("arm_path", 10);
+    path_msg_.header.frame_id = "base_link";
     pub_joint_control_.resize(DoF_);
     // initialize jnt cmd topic names and publisher
     for (int i=0; i< DoF_; i++) {
@@ -208,10 +211,11 @@ namespace kinematics_lib{
         }
         if (tjBuff_->ExecuteTrajBuffer(time_scale_ * traj_exec_step_, &jp_d_,
                          &jv_d_, &ja_d_)) {
-             
+
           SendOutputData(jp_d_); // send out control output based upon control_mode_, and control_output_
         }
         GetInputData();               // get feedback (every time, we send out an output commmand)
+        rclcpp::spin_some(node_);     // flush publisher queues and process any pending callbacks
         next_time = current_time + traj_task_period_;
         std::this_thread::sleep_until(next_time);
       } catch (KinematicsException & e) {
@@ -752,7 +756,7 @@ namespace kinematics_lib{
   void CreateRobot::publishJnt(const Eigen::VectorXd &jnt_a, const Pose &pose) {
     auto poseMsg = std::make_shared<geometry_msgs::msg::PoseStamped>();
     poseMsg->header.stamp = node_->get_clock()->now();
-    poseMsg->header.frame_id = "rob_base";
+    poseMsg->header.frame_id = "base_link";
     Vec p = pose.getTranslation();
     Quaternion q = pose.getQuaternion();
     poseMsg->pose.position.x = p.x();
@@ -764,19 +768,35 @@ namespace kinematics_lib{
     poseMsg->pose.orientation.z = q.z();
     pub_cart_cmd_->publish(*poseMsg);
 
+    // Publish roll/pitch/yaw for time-series plotting (rqt_plot /arm_rpy/vector/x etc.)
+    double yaw = 0.0, pitch = 0.0, roll = 0.0;
+    q.GetEulerZYX(&yaw, &pitch, &roll);
+    geometry_msgs::msg::Vector3Stamped rpyMsg;
+    rpyMsg.header = poseMsg->header;
+    rpyMsg.vector.x = roll;
+    rpyMsg.vector.y = pitch;
+    rpyMsg.vector.z = yaw;
+    pub_rpy_->publish(rpyMsg);
+
+    // Accumulate path for trajectory visualization in RViz
+    path_msg_.header = poseMsg->header;
+    path_msg_.poses.push_back(*poseMsg);
+    pub_path_->publish(path_msg_);
+
     auto msgs = std::make_shared<sensor_msgs::msg::JointState>();
     msgs->header.stamp = node_->get_clock()->now();
 
     msgs->name = armMap_->GetJntNames();
-    // tmp.insert(tmp.end(), jnt_a.begin(), jnt_a.end());
     Eigen::VectorXd jnt_p;
-    if (!armMap_->CalcPassive(jnt_a, pose, jnt_p)) {
+    if (armMap_->CalcPassive(jnt_a, pose, jnt_p) == 0 && jnt_p.size() > 0) {
       Eigen::VectorXd tmp(jnt_a.size() + jnt_p.size());
       tmp.segment(0, jnt_a.size()) = jnt_a;
-      tmp.segment(jnt_a.size(), jnt_p.size()) = jnt_p; 
+      tmp.segment(jnt_a.size(), jnt_p.size()) = jnt_p;
       EigenVec2StdVec(tmp, &msgs->position);
-      pub_joint_cmd_->publish(*msgs);
+    } else {
+      EigenVec2StdVec(jnt_a, &msgs->position);
     }
+    pub_joint_cmd_->publish(*msgs);
   }
 
  bool CreateRobot::GetCartFromJnt(const EigenDRef<Eigen::VectorXd> &jnt,

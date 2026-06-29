@@ -182,18 +182,18 @@ bool Scara::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
     }
     for (size_t i=0; i < DoF_; i++) {
       if (i != 2) { // for theta[0], theta[1], theta[3] parameters
-         Js_t.col(i) = Jp_t.col(5 * i + 2);
+         Js_t.col(i) = Jp_t.col(4 * i + 2);
          if (reduction) {
-            Js_r(i) = Jp_r(2, 5 * i + 2);
+            Js_r(i) = Jp_r(2, 4 * i + 2);
          } else {
-            Js_r.col(i) = Jp_r.col(5 * i  + 2);
+            Js_r.col(i) = Jp_r.col(4 * i + 2);
          }
       } else { // for d[2] parameter
-         Js_t.col(i) = Jp_t.col(5 * i + 3);
+         Js_t.col(i) = Jp_t.col(4 * i + 3);
          if (reduction) {
-            Js_r(i) = Jp_r(2, 5 * i + 3); 
+            Js_r(i) = Jp_r(2, 4 * i + 3);
          } else {
-            Js_r.col(i) = Jp_r.col(5 * i + 3);
+            Js_r.col(i) = Jp_r.col(4 * i + 3);
          }
       }
     }      

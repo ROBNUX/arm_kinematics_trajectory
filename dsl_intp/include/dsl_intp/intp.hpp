@@ -15,6 +15,8 @@
 #include "dsl_intp/intp_exportdecl.h"
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/vector3_stamped.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "pluginlib/class_loader.hpp"
 #include <chrono>
@@ -218,6 +220,9 @@ namespace kinematics_lib {
    // joint and cartesian publisher
    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_cmd_;
    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_cart_cmd_;
+   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_rpy_;
+   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
+   nav_msgs::msg::Path path_msg_;
    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> pub_joint_control_;
  };
 }

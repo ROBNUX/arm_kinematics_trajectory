@@ -22,8 +22,10 @@ namespace {
 
 py::tuple py_GetCartFromJnt(kinematics_lib::CreateRobot& self,
                             const EigenDRef<Eigen::VectorXd>& jnt,
-                            Eigen::Index cart_size) {
-  Eigen::VectorXd cart = Eigen::VectorXd::Zero(cart_size);
+                            Eigen::Index /*cart_size*/) {
+  // GetCartFromJnt always outputs [x,y,z,roll,pitch,yaw] — 6 elements.
+  // Eigen::Ref cannot be resized, so we must pre-allocate the exact output size.
+  Eigen::VectorXd cart = Eigen::VectorXd::Zero(6);
   EigenDRef<Eigen::VectorXd> cart_ref(cart);
   bool ok = self.GetCartFromJnt(jnt, cart_ref);
   return py::make_tuple(ok, cart);
@@ -31,8 +33,9 @@ py::tuple py_GetCartFromJnt(kinematics_lib::CreateRobot& self,
 
 py::tuple py_GetPoseFromJnt(kinematics_lib::CreateRobot& self,
                             const EigenDRef<Eigen::VectorXd>& jnt,
-                            Eigen::Index pose_size) {
-  Eigen::VectorXd pose = Eigen::VectorXd::Zero(pose_size);
+                            Eigen::Index /*pose_size*/) {
+  // GetPoseFromJnt always outputs 8 elements: [x,y,z,roll,pitch,yaw,config,turns].
+  Eigen::VectorXd pose = Eigen::VectorXd::Zero(8);
   EigenDRef<Eigen::VectorXd> pose_ref(pose);
   bool ok = self.GetPoseFromJnt(jnt, pose_ref);
   return py::make_tuple(ok, pose);

@@ -1,5 +1,5 @@
 <class_libraries>
-    <library path="librobnux_kinematics_map">
+    <library path="robnux_kinematics_map">
         <class name = "quattro" type="kinematics_lib::Quattro" base_class_type="kinematics_lib::BaseKinematicMap">
             <description> FK/IK of Quattro parallel robot </description>
         </class>
@@ -11,6 +11,21 @@
         </class>
         <class name = "scara" type="kinematics_lib::Scara" base_class_type="kinematics_lib::BaseKinematicMap">
             <description> FK/IK of 4-DoF scara robot of Mitsubishi convention </description>
+        </class>
+        <class name = "sixaxis_1" type="kinematics_lib::SixAxis_1" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 6-DoF serial arm (Mitsubishi 6-axis convention) </description>
+        </class>
+        <class name = "xyz_gantry" type="kinematics_lib::XYZGantry" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 3-DoF XYZ Cartesian gantry robot </description>
+        </class>
+        <class name = "xyz_ur" type="kinematics_lib::XYZ_UR" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 5-DoF XYZ gantry + 2-DoF U-joint tilt/pan head </description>
+        </class>
+        <class name = "ujnt" type="kinematics_lib::UJNT" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 2-DoF R-R U-joint module </description>
+        </class>
+        <class name = "single_axis" type="kinematics_lib::singleAxisModule" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> FK/IK of 1-DoF single axis rotary module </description>
         </class>
     </library>
 </class_libraries>

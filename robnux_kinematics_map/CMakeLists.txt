@@ -55,6 +55,8 @@ install(FILES kinematics_plugin.xml
   DESTINATION share/${PROJECT_NAME}
 )
 
+pluginlib_export_plugin_description_file(robnux_kinematics_map kinematics_plugin.xml)
+
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
