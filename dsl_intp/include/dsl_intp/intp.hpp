@@ -223,7 +223,9 @@ namespace kinematics_lib {
    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_rpy_;
    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
    nav_msgs::msg::Path path_msg_;
+   int path_publish_counter_{0};   // publish path every N steps to limit serialization cost
    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> pub_joint_control_;
+   std::thread spin_thread_;
  };
 }
 #endif  /* ROBINTP_INTP_HPP */

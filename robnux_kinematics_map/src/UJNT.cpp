@@ -198,11 +198,11 @@ bool UJNT::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
     
     Js_t.resize(3, DoF_);
     for (size_t i=0; i < DoF_; i++) {
-      Js_t.col(i) = Jp_t.col(5 * i + 2) * pitch_(i);
+      Js_t.col(i) = Jp_t.col(4 * i + 2) * pitch_(i);
     }
     Js_r.resize(3, DoF_);
     for (size_t i=0; i < DoF_; i++) {
-      Js_r.col(i) = Jp_r.col(5 * i + 2) * pitch_(i);
+      Js_r.col(i) = Jp_r.col(4 * i + 2) * pitch_(i);
     }      
     return true;
 }

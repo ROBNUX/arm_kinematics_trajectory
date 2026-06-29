@@ -74,8 +74,12 @@ def main() -> int:
         return 1
 
     print(f"\nHome: x={home_loc.x:.4f}  y={home_loc.y:.4f}  z={home_loc.z:.4f}")
+    print(f"      A={home_loc.A:.4f}  B={home_loc.B:.4f}  C={home_loc.C:.4f}")
     print(f"      branch={home_loc.G}  turn={home_loc.T}")
     cfg, turns = home_loc.G, home_loc.T
+    # Keep the home Euler orientation throughout Cartesian moves so the
+    # trajectory is not dominated by a large wrist rotation.
+    ha, hb, hc = home_loc.A, home_loc.B, home_loc.C
 
     rob.SetFeedback(HOME_JNT)
     for i in range(DOF):
@@ -92,11 +96,11 @@ def main() -> int:
     print("\n--- Demo 1: Cartesian box in XZ plane ---")
     dx, dz = 0.08, 0.06
     waypoints = [
-        m.LocData(xh + dx, yh, zh,      0, 0, 0, cfg, turns),
-        m.LocData(xh + dx, yh, zh + dz, 0, 0, 0, cfg, turns),
-        m.LocData(xh - dx, yh, zh + dz, 0, 0, 0, cfg, turns),
-        m.LocData(xh - dx, yh, zh,      0, 0, 0, cfg, turns),
-        m.LocData(xh,      yh, zh,      0, 0, 0, cfg, turns),
+        m.LocData(xh + dx, yh, zh,      ha, hb, hc, cfg, turns),
+        m.LocData(xh + dx, yh, zh + dz, ha, hb, hc, cfg, turns),
+        m.LocData(xh - dx, yh, zh + dz, ha, hb, hc, cfg, turns),
+        m.LocData(xh - dx, yh, zh,      ha, hb, hc, cfg, turns),
+        m.LocData(xh,      yh, zh,      ha, hb, hc, cfg, turns),
     ]
     try:
         for i, wp in enumerate(waypoints):
@@ -108,9 +112,9 @@ def main() -> int:
         # ── demo 2: arc in XY plane ───────────────────────────────────────────
         print("\n--- Demo 2: Arc in XY plane ---")
         r_arc = 0.05
-        arc_via = m.LocData(xh + r_arc, yh + r_arc, zh, 0, 0, 0, cfg, turns)
-        arc_end = m.LocData(xh, yh + 2 * r_arc, zh, 0, 0, 0, cfg, turns)
-        rob.MoveLine(m.LocData(xh - r_arc, yh, zh, 0, 0, 0, cfg, turns), fd, 5)
+        arc_via = m.LocData(xh + r_arc, yh + r_arc, zh, ha, hb, hc, cfg, turns)
+        arc_end = m.LocData(xh, yh + 2 * r_arc, zh, ha, hb, hc, cfg, turns)
+        rob.MoveLine(m.LocData(xh - r_arc, yh, zh, ha, hb, hc, cfg, turns), fd, 5)
         rob.MoveArc(arc_via, arc_end, fd, 0)
         wait_done(rob)
         print("  Arc motion complete.")

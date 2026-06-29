@@ -158,9 +158,21 @@ void TrajectoryBuffer::ProcessCommandBuffer() {
           ptp_traj = std::make_shared<PTPTrajectory>(DoF_);
           ptp_traj->setKinematicMap(armMap_);
           ptp_traj->setProfile(jnt_prof);
-          if (!ptp_traj->setBoundaryCond(sps, start_vel, eps, end_vel)) {
-            errorCode_ = -ERR_TRAJ_SET_BOUND;
-            return;
+          if (ptp_cmd->UseJntDirectly()) {
+            // Joint angles already known (PTPJ) — use joint-space overload to
+            // avoid IK ambiguity on the start pose (wrong turn count = huge
+            // trajectory displacement).
+            Eigen::VectorXd zero_jv = Eigen::VectorXd::Zero(DoF_);
+            if (!ptp_traj->setBoundaryCond(*ptp_cmd->GetStartJnts(), zero_jv,
+                                           *ptp_cmd->GetGoalJnts(), zero_jv)) {
+              errorCode_ = -ERR_TRAJ_SET_BOUND;
+              return;
+            }
+          } else {
+            if (!ptp_traj->setBoundaryCond(sps, start_vel, eps, end_vel)) {
+              errorCode_ = -ERR_TRAJ_SET_BOUND;
+              return;
+            }
           }
           cart_traj = ptp_traj;  // recall ptp_traj is also a type of cart_traj
         } else {                 // means cartesian type traj

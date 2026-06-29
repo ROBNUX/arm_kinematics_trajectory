@@ -88,17 +88,11 @@ def generate_launch_description() -> LaunchDescription:
             output="screen",
         ),
 
-        # rqt_plot for time-series: position (x/y/z) and orientation (roll/pitch/yaw)
+        # PlotJuggler for rolling time-series: position (x/y/z) and orientation (roll/pitch/yaw)
+        # Subscribe to /cart_pose and /arm_rpy after it opens.
+        # Fallback: rqt_plot (set Timespan in toolbar for rolling window).
         ExecuteProcess(
-            cmd=[
-                "/opt/ros/jazzy/lib/rqt_plot/rqt_plot",
-                "/cart_pose/pose/position/x",
-                "/cart_pose/pose/position/y",
-                "/cart_pose/pose/position/z",
-                "/arm_rpy/vector/x",
-                "/arm_rpy/vector/y",
-                "/arm_rpy/vector/z",
-            ],
+            cmd=["ros2", "run", "plotjuggler", "plotjuggler"],
             output="screen",
             condition=IfCondition(plot),
         ),

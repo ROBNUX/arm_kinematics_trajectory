@@ -81,6 +81,14 @@ namespace kinematics_lib{
         pub_joint_control_[i] = node_->create_publisher<std_msgs::msg::Float64>(topic, 10);
     }
 
+    // dedicated spin thread: flushes DDS callbacks at 50ms without blocking the 2ms control loop
+    spin_thread_ = std::thread([this]() {
+      while (!shutdown_) {
+        rclcpp::spin_some(node_);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+    });
+
     // initialize two threads, one for adding commands to cmd buffer, and then converting
     // cmd buffer to traj buff
     try {
@@ -99,6 +107,9 @@ namespace kinematics_lib{
   CreateRobot::~CreateRobot() {
     if (initialized_) {
       shutdown_ = true;
+      if (spin_thread_.joinable()) {
+        spin_thread_.join();
+      }
       if (intp_thread_.joinable()) {
         intp_thread_.join();
       }
@@ -115,6 +126,9 @@ namespace kinematics_lib{
   void CreateRobot::ShutDown() {
     if (initialized_) {
       shutdown_ = true;
+      if (spin_thread_.joinable()) {
+        spin_thread_.join();
+      }
       if (intp_thread_.joinable()) {
         intp_thread_.join();
       }
@@ -215,7 +229,6 @@ namespace kinematics_lib{
           SendOutputData(jp_d_); // send out control output based upon control_mode_, and control_output_
         }
         GetInputData();               // get feedback (every time, we send out an output commmand)
-        rclcpp::spin_some(node_);     // flush publisher queues and process any pending callbacks
         next_time = current_time + traj_task_period_;
         std::this_thread::sleep_until(next_time);
       } catch (KinematicsException & e) {
@@ -538,30 +551,22 @@ namespace kinematics_lib{
         return false;
     }
     */
+    std::vector<JntProfile> current_jpf = jpf_;  // local copy — do NOT modify jpf_ in-place
     for (size_t i=0; i < DoF_; i++) {
-     jpf_[i].max_vel_ *= (double)current_spd_percent_.vel_perc_ / 100.0;
-     jpf_[i].max_acc_ *= (double) current_spd_percent_.acc_perc_ / 100.0;
-     jpf_[i].max_jerk_ *= (double) current_spd_percent_.jerk_perc_ / 100.0;
+     current_jpf[i].max_vel_ *= (double)current_spd_percent_.vel_perc_ / 100.0;
+     current_jpf[i].max_acc_ *= (double)current_spd_percent_.acc_perc_ / 100.0;
+     current_jpf[i].max_jerk_ *= (double)current_spd_percent_.jerk_perc_ / 100.0;
     }
 
-    /*
-    std::ostringstream ss;
-    ss << " goal jnt is ";
-    for (size_t i=0; i < last_jnt_.size(); i++) {
-        ss << g_jnt[i] << " ";
-    }
-    ss << std::endl;
-    LOG_INFO(ss);
-     */
     strs.str("");
-    strs <<__FUNCTION__ << ":" << __LINE__ 
+    strs <<__FUNCTION__ << ":" << __LINE__
          << " initial pose is " << startPose.ToString(true)
          <<  " goal pose is " << goalPose.ToString(true)
          << std::endl;
     LOG_INFO(strs);
     std::shared_ptr<PTPMotionCommand> cmd =
             std::make_shared<PTPMotionCommand>(startPose, goalPose,
-                                              jpf_, armMap_,  appr_perc);
+                                              current_jpf, armMap_,  appr_perc);
     /* for PTP: no need to set config and turn*/
     /*
     // for this special PTP motion, should have same config
@@ -594,17 +599,18 @@ namespace kinematics_lib{
       usleep(100);
     }
 
+    std::vector<JntProfile> current_jpf = jpf_;  // local copy — do NOT modify jpf_ in-place
     for (size_t i=0; i < DoF_; i++) {
-     jpf_[i].max_vel_ *= current_spd_percent_.vel_perc_ / 100.0;
-     jpf_[i].max_acc_ *= current_spd_percent_.acc_perc_ / 100.0;
-     jpf_[i].max_jerk_ *= current_spd_percent_.jerk_perc_ / 100.0;
+     current_jpf[i].max_vel_ *= current_spd_percent_.vel_perc_ / 100.0;
+     current_jpf[i].max_acc_ *= current_spd_percent_.acc_perc_ / 100.0;
+     current_jpf[i].max_jerk_ *= current_spd_percent_.jerk_perc_ / 100.0;
     }
-    
+
     Pose startPose, goalPose;
     if (!last_goal_.getDefaultPose(&startPose)) {
       return false;
     }
-    
+
     if (armMap_->JntToCart(jnt, goalPose) < 0) {
         strs.str("");
         strs <<  " FK of jnt= " << jnt
@@ -613,17 +619,22 @@ namespace kinematics_lib{
         LOG_ERROR(strs);
         return false;
     }
+    Eigen::VectorXd start_jnt = last_jp_d_;
     last_jp_d_ = jnt;
     strs.str("");
-    strs <<__FUNCTION__ << ":" << __LINE__ 
+    strs <<__FUNCTION__ << ":" << __LINE__
          << " initial pose is " << startPose.ToString(true)
          <<  " goal pose is " << goalPose.ToString(true)
          << std::endl;
     LOG_INFO(strs);
+    // Pass joint angles directly so trajectory_buffer bypasses IK on startPose.
+    // Using start_jnt avoids IK ambiguity when the previous goal pose's turn
+    // flags don't match the actual joint state (e.g. after a Cartesian move).
     std::shared_ptr<PTPMotionCommand> cmd =
-            std::make_shared<PTPMotionCommand>(startPose, goalPose,
-                                              jpf_, armMap_,  appr_perc);
-    
+            std::make_shared<PTPMotionCommand>(start_jnt, startPose,
+                                              jnt, goalPose,
+                                              current_jpf, armMap_,  appr_perc);
+
     refPose rp;
     rp.setDefaultPose(goalPose);
     // update last pose
@@ -732,21 +743,22 @@ namespace kinematics_lib{
     if (!goal_ref.getDefaultPose(&goalPose)) {
       return false;
     }
+    std::vector<JntProfile> current_jpf = jpf_;  // local copy — do NOT modify jpf_ in-place
     for (size_t i=0; i < DoF_; i++) {
-     jpf_[i].max_vel_ *= current_spd_percent_.vel_perc_ / 100.0;
-     jpf_[i].max_acc_ *= current_spd_percent_.acc_perc_ / 100.0;
-     jpf_[i].max_jerk_ *= current_spd_percent_.jerk_perc_ / 100.0;
+     current_jpf[i].max_vel_ *= current_spd_percent_.vel_perc_ / 100.0;
+     current_jpf[i].max_acc_ *= current_spd_percent_.acc_perc_ / 100.0;
+     current_jpf[i].max_jerk_ *= current_spd_percent_.jerk_perc_ / 100.0;
     }
 
     strs.str("");
-    strs <<__FUNCTION__ << ":" << __LINE__ 
+    strs <<__FUNCTION__ << ":" << __LINE__
          << " initial pose is " << startPose.ToString(true)
          <<  " goal pose is " << goalPose.ToString(true)
          << std::endl;
     LOG_INFO(strs);
     std::shared_ptr<PTPMotionCommand> cmd =
             std::make_shared<PTPMotionCommand>(startPose, goalPose,
-                                              jpf_, armMap_,  appr_perc);
+                                              current_jpf, armMap_,  appr_perc);
 
     // update last pose
     last_goal_ = goal_ref;
@@ -778,10 +790,17 @@ namespace kinematics_lib{
     rpyMsg.vector.z = yaw;
     pub_rpy_->publish(rpyMsg);
 
-    // Accumulate path for trajectory visualization in RViz
-    path_msg_.header = poseMsg->header;
-    path_msg_.poses.push_back(*poseMsg);
-    pub_path_->publish(path_msg_);
+    // Add one pose and publish every 50 steps (100 ms), keeping at most 1000 poses.
+    // This caps serialization cost at ~120 KB at 10 Hz regardless of run length.
+    if (++path_publish_counter_ >= 50) {
+      path_publish_counter_ = 0;
+      path_msg_.header = poseMsg->header;
+      path_msg_.poses.push_back(*poseMsg);
+      if (static_cast<int>(path_msg_.poses.size()) > 1000) {
+        path_msg_.poses.erase(path_msg_.poses.begin());
+      }
+      pub_path_->publish(path_msg_);
+    }
 
     auto msgs = std::make_shared<sensor_msgs::msg::JointState>();
     msgs->header.stamp = node_->get_clock()->now();

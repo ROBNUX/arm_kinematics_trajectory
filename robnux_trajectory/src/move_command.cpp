@@ -37,4 +37,26 @@ PTPMotionCommand::PTPMotionCommand(
   }
 }
 
+PTPMotionCommand::PTPMotionCommand(
+    const Eigen::VectorXd& start_jnt, const Pose& start_pose,
+    const Eigen::VectorXd& goal_jnt, const Pose& goal_pose,
+    const std::vector<JntProfile>& jnt_pf,
+    const boost::shared_ptr<BaseKinematicMap>& armKM, const int percent)
+    : jnt_pf_(jnt_pf),
+      armKM_(armKM),
+      MotionCommand(ID_PTP, start_pose, goal_pose, ProfileData(), percent) {
+  start_jnt_ = start_jnt;
+  goal_jnt_ = goal_jnt;
+  use_jnt_directly_ = true;
+  DoF_ = start_jnt.size();
+  A_DoF_ = goal_jnt.size();
+  diff_jnt_.resize(A_DoF_);
+  diff_jnt_ = goal_jnt_ - start_jnt_;
+  totalJntLength_ = diff_jnt_.norm();
+  totalArcLength_ = totalJntLength_;
+  if (totalArcLength_ > MIN_JNT_DIST) {
+    initialized_ = true;
+  }
+}
+
 }  // namespace kinematics_lib

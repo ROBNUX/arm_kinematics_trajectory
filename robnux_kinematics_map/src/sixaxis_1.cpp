@@ -317,8 +317,8 @@ bool SixAxis_1::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
     Js_r.resize(3, 6);
     for (size_t i=0; i < DoF_; i++) {
         // for theta[i] parameters
-        Js_t.col(i) = Jp_t.col(5 * i + 2) * pitch_(i);
-        Js_r.col(i) = Jp_r.col(5 * i + 2) * pitch_(i);
+        Js_t.col(i) = Jp_t.col(4 * i + 2) * pitch_(i);
+        Js_r.col(i) = Jp_r.col(4 * i + 2) * pitch_(i);
     }      
     return true;
 }

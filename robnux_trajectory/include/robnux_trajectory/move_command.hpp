@@ -412,16 +412,21 @@ class PTPMotionCommand : public MotionCommand {
                    const boost::shared_ptr<BaseKinematicMap>& armKM,
                    const int percent = 0);
 
+  // Constructor that bypasses IK — use when joint angles are already known
+  // (e.g. PTPJ). start_jnt/goal_jnt are used directly in setBoundaryCond.
+  PTPMotionCommand(const Eigen::VectorXd& start_jnt, const Pose& start_pose,
+                   const Eigen::VectorXd& goal_jnt, const Pose& goal_pose,
+                   const std::vector<JntProfile>& pf,
+                   const boost::shared_ptr<BaseKinematicMap>& armKM,
+                   const int percent = 0);
+
   ~PTPMotionCommand() {}
 
   Eigen::VectorXd* GetStartJnts() { return &start_jnt_; }
   Eigen::VectorXd* GetGoalJnts() { return &goal_jnt_; }
   std::vector<JntProfile>* GetJntProfile() { return &jnt_pf_; }
-  /*
-  virtual double GetTotalArcLength() const {
-    return this->totalJntLength_;
-  }
-   */
+  // true when joint angles were directly provided (no IK needed in buffer)
+  bool UseJntDirectly() const { return use_jnt_directly_; }
 
   boost::shared_ptr<BaseKinematicMap> GetArmMap() const { return armKM_; }
   // get Robot DoF_
@@ -442,6 +447,8 @@ class PTPMotionCommand : public MotionCommand {
   boost::shared_ptr<BaseKinematicMap> armKM_;
   // total arc length of this command
   double totalJntLength_;
+  // set true when joint angles are provided directly (bypass IK in buffer)
+  bool use_jnt_directly_ = false;
 };
 
 }  // namespace kinematics_lib
