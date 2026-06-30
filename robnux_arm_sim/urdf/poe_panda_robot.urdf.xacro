@@ -1,0 +1,284 @@
+<?xml version="1.0" ?>
+<!--
+  Panda-like 7-DOF serial arm URDF for POE simulation (SevenRJointLock topology).
+  All dimensions in metres.
+
+  POE axes at q=0 (base frame): Z Y Z -Y Z Y Z
+
+  T_left translations (world frame, pure translations):
+    J0: (0,       0,     0.333)
+    J1: (0,       0,     0    )   concurrent with J0
+    J2: (0,       0,     0.316)   → J2 NOT concurrent with J0,J1
+    J3: (0.0825,  0,     0    )   lateral offset (breaks SRS)
+    J4: (-0.0825, 0,     0.384)   cancel X, add Z
+    J5: (0,       0,     0    )   concurrent with J4
+    J6: (0.088,   0,     0    )   lateral offset (breaks wrist SRS)
+  Tool offset: (0, 0, 0.107)
+  Home FK: (0.088, 0, 1.140)
+-->
+<robot name="poe_panda_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="PI"      value="3.14159265358979"/>
+  <xacro:property name="D1"      value="0.333"/>   <!-- base to J0 -->
+  <xacro:property name="D3"      value="0.316"/>   <!-- J1 to J2 -->
+  <xacro:property name="A3"      value="0.0825"/>  <!-- J2→J3 X offset -->
+  <xacro:property name="D5"      value="0.384"/>   <!-- J3→J4 Z (approximate) -->
+  <xacro:property name="A6"      value="0.088"/>   <!-- J5→J6 X offset -->
+  <xacro:property name="D_TOOL"  value="0.107"/>   <!-- J6 to flange -->
+  <xacro:property name="R"       value="0.040"/>
+  <xacro:property name="R_JNT"   value="0.050"/>
+  <xacro:property name="M"       value="2.0"/>
+
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base pedestal -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${D1/2}" rpy="0 0 0"/>
+      <mass value="10.0"/>
+      <inertia ixx="0.12" ixy="0" ixz="0" iyy="0.12" iyz="0" izz="0.05"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D1/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.070" length="${D1}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.100" length="0.05"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D1/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.070" length="${D1}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J0: waist — revolute Z -->
+  <joint name="JOINT_0_ACT" type="revolute">
+    <parent link="base_link"/>
+    <child  link="link_1"/>
+    <origin xyz="0 0 ${D1}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.90}" upper="${2.90}" effort="87" velocity="2.62"/>
+    <dynamics damping="1.0" friction="0.3"/>
+  </joint>
+
+  <!-- link_1: waist→shoulder (J0,J1 concurrent) -->
+  <link name="link_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${M}"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J1: shoulder tilt — revolute Y (concurrent with J0) -->
+  <joint name="JOINT_1_ACT" type="revolute">
+    <parent link="link_1"/>
+    <child  link="link_2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-1.76}" upper="${1.76}" effort="87" velocity="2.62"/>
+    <dynamics damping="1.0" friction="0.3"/>
+  </joint>
+
+  <!-- link_2: vertical section J1→J2 (height D3) -->
+  <link name="link_2">
+    <inertial>
+      <origin xyz="0 0 ${D3/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.2}"/>
+      <inertia ixx="0.03" ixy="0" ixz="0" iyy="0.03" iyz="0" izz="0.006"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D3/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${D3}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D3/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${D3}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J2: shoulder pan — revolute Z (at top of D3 column) -->
+  <joint name="JOINT_2_ACT" type="revolute">
+    <parent link="link_2"/>
+    <child  link="link_3"/>
+    <origin xyz="0 0 ${D3}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.90}" upper="${2.90}" effort="87" velocity="2.62"/>
+    <dynamics damping="0.8" friction="0.2"/>
+  </joint>
+
+  <!-- link_3: lateral stub J2→J3 (offset +X by A3) -->
+  <link name="link_3">
+    <inertial>
+      <origin xyz="${A3/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="${M}"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.003"/>
+    </inertial>
+    <visual>
+      <origin xyz="${A3/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.8}" length="${A3}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${A3/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.8}" length="${A3}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J3: elbow — revolute -Y (at end of lateral stub) -->
+  <joint name="JOINT_3_ACT" type="revolute">
+    <parent link="link_3"/>
+    <child  link="link_4"/>
+    <origin xyz="${A3} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="${-3.07}" upper="${-0.07}" effort="87" velocity="2.62"/>
+    <dynamics damping="0.8" friction="0.2"/>
+  </joint>
+
+  <!-- link_4: forearm — J3→J4 (cancel X, add Z height D5) -->
+  <link name="link_4">
+    <inertial>
+      <origin xyz="${-A3/2} 0 ${D5/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.3}"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.006"/>
+    </inertial>
+    <!-- diagonal tube from J3 to J4 -->
+    <visual>
+      <origin xyz="${-A3/2} 0 ${D5/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R*0.85}" length="${D5}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${-A3/2} 0 ${D5/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R*0.85}" length="${D5}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J4: forearm roll — revolute Z (J4,J5 concurrent) -->
+  <joint name="JOINT_4_ACT" type="revolute">
+    <parent link="link_4"/>
+    <child  link="link_5"/>
+    <origin xyz="${-A3} 0 ${D5}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.90}" upper="${2.90}" effort="12" velocity="3.40"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <!-- link_5: wrist tilt hub (J4=J5 concurrent) -->
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.6"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J5: wrist tilt — revolute Y (concurrent with J4) -->
+  <joint name="JOINT_5_ACT" type="revolute">
+    <parent link="link_5"/>
+    <child  link="link_6"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-0.02}" upper="${3.75}" effort="12" velocity="3.40"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <!-- link_6: wrist lateral stub J5→J6 (+X by A6) -->
+  <link name="link_6">
+    <inertial>
+      <origin xyz="${A6/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="0.4"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/>
+    </inertial>
+    <visual>
+      <origin xyz="${A6/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.6}" length="${A6}"/></geometry>
+      <material name="panda_white"><color rgba="0.95 0.95 0.95 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.9}"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${A6/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.6}" length="${A6}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J6: wrist roll — revolute Z -->
+  <joint name="JOINT_6_ACT" type="revolute">
+    <parent link="link_6"/>
+    <child  link="link_7"/>
+    <origin xyz="${A6} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.90}" upper="${2.90}" effort="12" velocity="3.40"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <!-- link_7: flange + TCP marker -->
+  <link name="link_7">
+    <inertial>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <mass value="0.15"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0002"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="${D_TOOL}"/></geometry>
+      <material name="panda_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL}" rpy="0 0 0"/>
+      <geometry><sphere radius="0.011"/></geometry>
+      <material name="orange"><color rgba="1.0 0.5 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="${D_TOOL}"/></geometry>
+    </collision>
+  </link>
+
+</robot>

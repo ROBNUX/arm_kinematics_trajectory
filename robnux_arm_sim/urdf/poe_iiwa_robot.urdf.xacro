@@ -1,0 +1,268 @@
+<?xml version="1.0" ?>
+<!--
+  iiwa-like 7-DOF serial arm URDF for POE simulation (SevenRSRS topology).
+  All dimensions in metres.
+
+  POE axes at q=0 (base frame): Z Y Z Y Z Y Z  (alternating)
+  J0,J1,J2 concurrent at (0,0,0.340) → shoulder SRS pivot
+  J4,J5,J6 concurrent at (0,0,1.140) → wrist SRS pivot
+  J3 at (0,0,0.740) = elbow
+
+  T_left translations:
+    J0: (0,0,0.340)   J1,J2: (0,0,0)
+    J3: (0,0,0.400)   J4: (0,0,0.400)   J5,J6: (0,0,0)
+  Tool offset: (0,0,0.126)
+-->
+<robot name="poe_iiwa_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="PI"       value="3.14159265358979"/>
+  <xacro:property name="D_BASE"   value="0.340"/>  <!-- base to shoulder pivot -->
+  <xacro:property name="L_SE"     value="0.400"/>  <!-- shoulder to elbow -->
+  <xacro:property name="L_EW"     value="0.400"/>  <!-- elbow to wrist pivot -->
+  <xacro:property name="D_TOOL"   value="0.126"/>  <!-- wrist to flange -->
+  <xacro:property name="R"        value="0.040"/>  <!-- link tube radius -->
+  <xacro:property name="R_JNT"    value="0.055"/>  <!-- joint sphere radius -->
+  <xacro:property name="M"        value="2.0"/>    <!-- generic link mass -->
+
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base pedestal -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <mass value="12.0"/>
+      <inertia ixx="0.15" ixy="0" ixz="0" iyy="0.15" iyz="0" izz="0.06"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.075" length="${D_BASE}"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.35 0.35 0.35 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.100" length="0.06"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.35 0.35 0.35 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.075" length="${D_BASE}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J0: waist — revolute Z -->
+  <joint name="JOINT_0_ACT" type="revolute">
+    <parent link="base_link"/>
+    <child  link="link_1"/>
+    <origin xyz="0 0 ${D_BASE}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.97}" upper="${2.97}" effort="320" velocity="1.48"/>
+    <dynamics damping="1.0" friction="0.3"/>
+  </joint>
+
+  <!-- link_1: shoulder hub (J0=J1=J2 all concurrent here) -->
+  <link name="link_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${M}"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.006"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="iiwa_orange"><color rgba="1.0 0.45 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J1: shoulder tilt — revolute Y (concurrent with J0) -->
+  <joint name="JOINT_1_ACT" type="revolute">
+    <parent link="link_1"/>
+    <child  link="link_2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="320" velocity="1.48"/>
+    <dynamics damping="1.0" friction="0.3"/>
+  </joint>
+
+  <!-- link_2: shoulder → J2 hub -->
+  <link name="link_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.5 0.5 0.5 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J2: shoulder pan — revolute Z (concurrent with J0, J1 → shoulder SRS) -->
+  <joint name="JOINT_2_ACT" type="revolute">
+    <parent link="link_2"/>
+    <child  link="link_3"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.97}" upper="${2.97}" effort="176" velocity="1.74"/>
+    <dynamics damping="0.8" friction="0.2"/>
+  </joint>
+
+  <!-- link_3: upper arm — shoulder pivot to elbow (L_SE along Z) -->
+  <link name="link_3">
+    <inertial>
+      <origin xyz="0 0 ${L_SE/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.5}"/>
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.008"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${L_SE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${L_SE}"/></geometry>
+      <material name="iiwa_orange"><color rgba="1.0 0.45 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.35 0.35 0.35 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${L_SE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${L_SE}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J3: elbow — revolute Y -->
+  <joint name="JOINT_3_ACT" type="revolute">
+    <parent link="link_3"/>
+    <child  link="link_4"/>
+    <origin xyz="0 0 ${L_SE}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="176" velocity="1.74"/>
+    <dynamics damping="0.8" friction="0.2"/>
+  </joint>
+
+  <!-- link_4: lower arm — elbow to wrist pivot (L_EW along Z) -->
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0 0 ${L_EW/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.2}"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.007"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${L_EW/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R * 0.85}" length="${L_EW}"/></geometry>
+      <material name="iiwa_orange"><color rgba="1.0 0.45 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.35 0.35 0.35 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${L_EW/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R * 0.85}" length="${L_EW}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J4: wrist roll — revolute Z, at wrist pivot -->
+  <joint name="JOINT_4_ACT" type="revolute">
+    <parent link="link_4"/>
+    <child  link="link_5"/>
+    <origin xyz="0 0 ${L_EW}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.97}" upper="${2.97}" effort="110" velocity="2.27"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <!-- link_5: wrist hub (J4=J5=J6 concurrent) -->
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="iiwa_orange"><color rgba="1.0 0.45 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J5: wrist tilt — revolute Y (concurrent with J4) -->
+  <joint name="JOINT_5_ACT" type="revolute">
+    <parent link="link_5"/>
+    <child  link="link_6"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="110" velocity="2.27"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <!-- link_6: wrist pan hub -->
+  <link name="link_6">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+      <material name="iiwa_grey"><color rgba="0.35 0.35 0.35 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J6: wrist roll — revolute Z (concurrent with J4, J5 → wrist SRS) -->
+  <joint name="JOINT_6_ACT" type="revolute">
+    <parent link="link_6"/>
+    <child  link="link_7"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-3.05}" upper="${3.05}" effort="40" velocity="3.14"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <!-- link_7: flange + TCP marker -->
+  <link name="link_7">
+    <inertial>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0002"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="${D_TOOL}"/></geometry>
+      <material name="iiwa_dark"><color rgba="0.15 0.15 0.15 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL}" rpy="0 0 0"/>
+      <geometry><sphere radius="0.012"/></geometry>
+      <material name="iiwa_tcp"><color rgba="1.0 0.8 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.025" length="${D_TOOL}"/></geometry>
+    </collision>
+  </link>
+
+</robot>

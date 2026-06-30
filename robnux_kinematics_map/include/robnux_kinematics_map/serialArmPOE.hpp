@@ -10,6 +10,7 @@
 
 #include "robnux_kinematics_map/serialArm.hpp"
 #include "robnux_kinematics_map/poe_subproblems.hpp"
+#include "pluginlib/class_list_macros.hpp"
 
 namespace kinematics_lib {
 
@@ -203,6 +204,24 @@ class KINEMATICS_API serialArmPOE : public serialArm {
   ArmTopology                  topology_{ArmTopology::Unknown};
   mutable SrsData              srs_data_{};          ///< valid when topology_ == SevenRSRS
   mutable int                  lock_idx_{0};          ///< valid when topology_ == SevenRJointLock
+};
+
+// ---------------------------------------------------------------------------
+// Thin wrappers so pluginlib can instantiate serialArmPOE without arguments.
+// DoF must be fixed at construction time; SetGeometry validates parameter
+// count against DoF_, so 6R and 7R need separate plugin classes.
+// ---------------------------------------------------------------------------
+
+class serialArmPOE_6R : public serialArmPOE {
+ public:
+  serialArmPOE_6R() : serialArmPOE(6) {}
+  std::string GetName() const override { return "serialArmPOE_6R"; }
+};
+
+class serialArmPOE_7R : public serialArmPOE {
+ public:
+  serialArmPOE_7R() : serialArmPOE(7) {}
+  std::string GetName() const override { return "serialArmPOE_7R"; }
 };
 
 }  // namespace kinematics_lib

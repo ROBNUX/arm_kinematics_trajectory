@@ -27,5 +27,11 @@
         <class name = "single_axis" type="kinematics_lib::singleAxisModule" base_class_type="kinematics_lib::BaseKinematicMap">
             <description> FK/IK of 1-DoF single axis rotary module </description>
         </class>
+        <class name = "poe_arm_6r" type="kinematics_lib::serialArmPOE_6R" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> POE FK/IK for 6-DOF serial arms — auto-detects UR (ThreeParallel), Puma/Fanuc/KUKA-KR (SphericalTwoParallel), ABB/xArm6 (SphericalTwoIntersecting) </description>
+        </class>
+        <class name = "poe_arm_7r" type="kinematics_lib::serialArmPOE_7R" base_class_type="kinematics_lib::BaseKinematicMap">
+            <description> POE FK/IK for 7-DOF serial arms — auto-detects iiwa/Rizon/Kassow (SevenRSRS) or Franka/xArm7 (SevenRJointLock) </description>
+        </class>
     </library>
 </class_libraries>

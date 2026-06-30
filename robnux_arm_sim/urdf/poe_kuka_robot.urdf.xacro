@@ -1,0 +1,247 @@
+<?xml version="1.0" ?>
+<!--
+  KUKA KR-like 6-DOF serial arm URDF for POE simulation (SphericalTwoParallel topology).
+  All dimensions in metres.
+
+  POE axes at q=0 (base frame):
+    J0: Z (waist)    J1: Y (shoulder)   J2: Y (elbow, parallel to J1)
+    J3: Z (wrist roll)  J4: Y (wrist pitch)  J5: Z (wrist roll)
+
+  T_left translations:
+    J0: (0, 0, 0.400)        J1: (0.025, 0, 0)      J2: (0, 0, 0.490)
+    J3: (0, 0, 0.430)        J4: (0, 0, 0)           J5: (0, 0, 0)
+  Wrist pivot: (0.025, 0, 1.320)   Tool offset: (0, 0, 0.080)
+
+  axes[1]=Y ∥ axes[2]=Y + spherical wrist + ||p[1]||=0.025≠0 → SphericalTwoParallel
+-->
+<robot name="poe_kuka_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="PI"       value="3.14159265358979"/>
+  <xacro:property name="D_BASE"   value="0.400"/>  <!-- base to shoulder height -->
+  <xacro:property name="D_SHX"   value="0.025"/>  <!-- lateral shoulder offset (X) -->
+  <xacro:property name="L_UPPER" value="0.490"/>  <!-- shoulder to elbow (Z) -->
+  <xacro:property name="L_FORE"  value="0.430"/>  <!-- elbow to wrist pivot (Z) -->
+  <xacro:property name="D_TOOL"  value="0.080"/>  <!-- wrist to flange -->
+  <xacro:property name="R"       value="0.035"/>  <!-- link tube radius -->
+  <xacro:property name="R_JNT"   value="0.050"/>  <!-- joint sphere radius -->
+  <xacro:property name="M"       value="2.0"/>    <!-- generic link mass -->
+
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base pedestal -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <mass value="15.0"/>
+      <inertia ixx="0.20" ixy="0" ixz="0" iyy="0.20" iyz="0" izz="0.08"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.080" length="${D_BASE}"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.110" length="0.06"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D_BASE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.080" length="${D_BASE}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J0: waist — revolute Z -->
+  <joint name="JOINT_0_ACT" type="revolute">
+    <parent link="base_link"/>
+    <child  link="link_1"/>
+    <origin xyz="0 0 ${D_BASE}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-2.97}" upper="${2.97}" effort="360" velocity="1.74"/>
+    <dynamics damping="1.2" friction="0.4"/>
+  </joint>
+
+  <!-- link_1: shoulder hub with lateral stub in X to J1 -->
+  <link name="link_1">
+    <inertial>
+      <origin xyz="${D_SHX/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.002"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="kuka_orange"><color rgba="1.0 0.40 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="${D_SHX/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.7}" length="${D_SHX}"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${D_SHX/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${R*0.7}" length="${D_SHX}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J1: shoulder pitch — revolute Y (lateral offset D_SHX in X) -->
+  <joint name="JOINT_1_ACT" type="revolute">
+    <parent link="link_1"/>
+    <child  link="link_2"/>
+    <origin xyz="${D_SHX} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="360" velocity="1.74"/>
+    <dynamics damping="1.2" friction="0.4"/>
+  </joint>
+
+  <!-- link_2: upper arm along Z (shoulder to elbow) -->
+  <link name="link_2">
+    <inertial>
+      <origin xyz="0 0 ${L_UPPER/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.5}"/>
+      <inertia ixx="0.06" ixy="0" ixz="0" iyy="0.06" iyz="0" izz="0.008"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${L_UPPER/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${L_UPPER}"/></geometry>
+      <material name="kuka_orange"><color rgba="1.0 0.40 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${L_UPPER/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R}" length="${L_UPPER}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J2: elbow pitch — revolute Y (parallel to J1) -->
+  <joint name="JOINT_2_ACT" type="revolute">
+    <parent link="link_2"/>
+    <child  link="link_3"/>
+    <origin xyz="0 0 ${L_UPPER}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="200" velocity="2.27"/>
+    <dynamics damping="0.9" friction="0.3"/>
+  </joint>
+
+  <!-- link_3: forearm along Z (elbow to wrist pivot) -->
+  <link name="link_3">
+    <inertial>
+      <origin xyz="0 0 ${L_FORE/2}" rpy="0 0 0"/>
+      <mass value="${M * 1.2}"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.006"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${L_FORE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R*0.85}" length="${L_FORE}"/></geometry>
+      <material name="kuka_orange"><color rgba="1.0 0.40 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${L_FORE/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="${R*0.85}" length="${L_FORE}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J3: wrist roll — revolute Z (at wrist pivot) -->
+  <joint name="JOINT_3_ACT" type="revolute">
+    <parent link="link_3"/>
+    <child  link="link_4"/>
+    <origin xyz="0 0 ${L_FORE}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-3.14}" upper="${3.14}" effort="120" velocity="3.14"/>
+    <dynamics damping="0.6" friction="0.15"/>
+  </joint>
+
+  <!-- link_4: wrist hub 1 (J3/J4 concurrent) -->
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+      <material name="kuka_orange"><color rgba="1.0 0.40 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J4: wrist pitch — revolute Y (concurrent with J3) -->
+  <joint name="JOINT_4_ACT" type="revolute">
+    <parent link="link_4"/>
+    <child  link="link_5"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-2.09}" upper="${2.09}" effort="120" velocity="3.14"/>
+    <dynamics damping="0.4" friction="0.1"/>
+  </joint>
+
+  <!-- link_5: wrist hub 2 (J4/J5 concurrent) -->
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+      <material name="kuka_grey"><color rgba="0.25 0.25 0.30 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${R_JNT*0.8}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- J5: wrist roll — revolute Z (concurrent with J3, J4 → spherical wrist) -->
+  <joint name="JOINT_5_ACT" type="revolute">
+    <parent link="link_5"/>
+    <child  link="link_6"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-3.14}" upper="${3.14}" effort="50" velocity="4.18"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <!-- link_6: flange + TCP marker -->
+  <link name="link_6">
+    <inertial>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.0002"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="${D_TOOL}"/></geometry>
+      <material name="kuka_dark"><color rgba="0.10 0.10 0.12 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 ${D_TOOL}" rpy="0 0 0"/>
+      <geometry><sphere radius="0.012"/></geometry>
+      <material name="kuka_tcp"><color rgba="1.0 0.8 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D_TOOL/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.022" length="${D_TOOL}"/></geometry>
+    </collision>
+  </link>
+
+</robot>

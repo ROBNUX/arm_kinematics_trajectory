@@ -32,6 +32,11 @@ install(PROGRAMS
   scripts/simulate_xyz_gantry.py
   scripts/simulate_xyz_ur.py
   scripts/simulate_quattro.py
+  scripts/simulate_poe_ur5.py
+  scripts/simulate_poe_iiwa.py
+  scripts/simulate_poe_panda.py
+  scripts/simulate_poe_kuka.py
+  scripts/simulate_poe_lite6.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

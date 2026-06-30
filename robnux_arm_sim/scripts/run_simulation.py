@@ -9,6 +9,9 @@ Usage:
     python3 run_simulation.py --robot xyz_ur
     python3 run_simulation.py --robot quattro
     python3 run_simulation.py --robot quattro_4
+    python3 run_simulation.py --robot poe_ur5
+    python3 run_simulation.py --robot poe_iiwa
+    python3 run_simulation.py --robot poe_panda
     python3 run_simulation.py --list
 
 Or via ros2 run (after building the package):
@@ -28,6 +31,9 @@ Supported robot types and their key features:
   xyz_ur     - 5-DoF XYZ gantry + 2-DoF tilt/pan UJNT head
   quattro    - 3-DoF parallel robot (XYZ translation)
   quattro_4  - 4-DoF parallel robot (XYZ + yaw)
+  poe_ur5    - 6-DoF UR5-like arm  (POE ThreeParallel)
+  poe_iiwa   - 7-DoF iiwa-like arm (POE SevenRSRS)
+  poe_panda  - 7-DoF Panda-like arm (POE SevenRJointLock)
 """
 
 import argparse
@@ -35,12 +41,15 @@ import sys
 
 
 SUPPORTED_ROBOTS = {
-    "scara":       ("simulate_scara",     "simulate_scara.main"),
-    "sixaxis_1":   ("simulate_sixaxis",   "simulate_sixaxis.main"),
-    "xyz_gantry":  ("simulate_xyz_gantry","simulate_xyz_gantry.main"),
-    "xyz_ur":      ("simulate_xyz_ur",    "simulate_xyz_ur.main"),
-    "quattro":     ("simulate_quattro",   None),   # needs --four flag dispatch
-    "quattro_4":   ("simulate_quattro",   None),
+    "scara":       ("simulate_scara",      "simulate_scara.main"),
+    "sixaxis_1":   ("simulate_sixaxis",    "simulate_sixaxis.main"),
+    "xyz_gantry":  ("simulate_xyz_gantry", "simulate_xyz_gantry.main"),
+    "xyz_ur":      ("simulate_xyz_ur",     "simulate_xyz_ur.main"),
+    "quattro":     ("simulate_quattro",    None),   # needs --four flag dispatch
+    "quattro_4":   ("simulate_quattro",    None),
+    "poe_ur5":     ("simulate_poe_ur5",    "simulate_poe_ur5.main"),
+    "poe_iiwa":    ("simulate_poe_iiwa",   "simulate_poe_iiwa.main"),
+    "poe_panda":   ("simulate_poe_panda",  "simulate_poe_panda.main"),
 }
 
 LAUNCH_MAP = {
@@ -50,6 +59,9 @@ LAUNCH_MAP = {
     "xyz_ur":      "ros2 launch robnux_arm_sim xyz_ur_rviz.launch.py",
     "quattro":     "ros2 launch quattro_bot quattro_rviz.launch.py",
     "quattro_4":   "ros2 launch quattro_bot quattro_4_rviz.launch.py",
+    "poe_ur5":     "ros2 launch robnux_arm_sim poe_ur5_rviz.launch.py",
+    "poe_iiwa":    "ros2 launch robnux_arm_sim poe_iiwa_rviz.launch.py",
+    "poe_panda":   "ros2 launch robnux_arm_sim poe_panda_rviz.launch.py",
 }
 
 
@@ -62,6 +74,9 @@ def list_robots() -> None:
         ("xyz_ur",      "5-DoF XYZ + tilt/pan",       "Gantry + UJNT 2R head"),
         ("quattro",     "3-DoF parallel robot",       "XYZ translation (delta-like)"),
         ("quattro_4",   "4-DoF parallel robot",       "XYZ + yaw (Adept Quattro)"),
+        ("poe_ur5",     "6-DoF POE UR5-like arm",     "ThreeParallel topology"),
+        ("poe_iiwa",    "7-DoF POE iiwa-like arm",    "SevenRSRS topology"),
+        ("poe_panda",   "7-DoF POE Panda-like arm",   "SevenRJointLock topology"),
     ]
     for name, dof_str, desc in rows:
         launch = LAUNCH_MAP.get(name, "")
@@ -122,6 +137,18 @@ def main() -> int:
     elif robot in ("quattro", "quattro_4"):
         import simulate_quattro
         return simulate_quattro.run_quattro(dof4=(robot == "quattro_4"))
+
+    elif robot == "poe_ur5":
+        import simulate_poe_ur5
+        return simulate_poe_ur5.main()
+
+    elif robot == "poe_iiwa":
+        import simulate_poe_iiwa
+        return simulate_poe_iiwa.main()
+
+    elif robot == "poe_panda":
+        import simulate_poe_panda
+        return simulate_poe_panda.main()
 
     else:
         print(f"ERROR: unknown robot '{robot}'")

@@ -14,6 +14,10 @@
 #include "robnux_kdl_common/vec.hpp"
 #include "simple_motion_logger/Logger.h"
 
+// register plugins
+PLUGINLIB_EXPORT_CLASS(kinematics_lib::serialArmPOE_6R, kinematics_lib::BaseKinematicMap)
+PLUGINLIB_EXPORT_CLASS(kinematics_lib::serialArmPOE_7R, kinematics_lib::BaseKinematicMap)
+
 namespace kinematics_lib {
 
 // ===========================================================================
@@ -212,7 +216,7 @@ int serialArmPOE::findThreeConsecutiveIntersecting(
         if (!axisIntersect(b,ob,c,oc,pt,dt)) continue;
         if (!axisIntersect(a,oa,c,oc,pt,dt)) continue;
         Eigen::Matrix<double,3,2> M; M.col(0)=a; M.col(1)=-b;
-        Eigen::Vector2d sol=M.jacobiSvd(Eigen::ComputeThinU|Eigen::ComputeThinV).solve(ob-oa);
+        Eigen::Vector2d sol=M.jacobiSvd(Eigen::ComputeFullU|Eigen::ComputeFullV).solve(ob-oa);
         Eigen::Vector3d p=oa+sol(0)*a;
         Eigen::Vector3d dc=p-oc;
         if ((dc-dc.dot(c)*c).norm()>=dt) continue;
@@ -235,7 +239,7 @@ serialArmPOE::findCommonPoint(const std::vector<int>& idx,
     // Intersection of first two axes
     Eigen::Matrix<double,3,2> M;
     M.col(0)=axes_[idx[0]]; M.col(1)=-axes_[idx[1]];
-    Eigen::Vector2d sol=M.jacobiSvd(Eigen::ComputeThinU|Eigen::ComputeThinV)
+    Eigen::Vector2d sol=M.jacobiSvd(Eigen::ComputeFullU|Eigen::ComputeFullV)
                          .solve(origs[idx[1]]-origs[idx[0]]);
     Eigen::Vector3d common = origs[idx[0]] + sol(0)*axes_[idx[0]];
     // Verify all axes pass through common
