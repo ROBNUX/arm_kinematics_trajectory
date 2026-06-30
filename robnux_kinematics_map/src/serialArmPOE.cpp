@@ -712,7 +712,49 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
 int serialArmPOE::JntToCart(const Eigen::VectorXd& q, Pose& p) {
     std::ostringstream s;
     if (!initialized_) { s<<GetName()<<": not initialized\n"; LOG_ERROR(s); return -ERR_ROB_PARAM_NOT_INITIALIZED; }
-    p.setFrame(eigenToFrame(poeFk(q))); p.setBranchFlags({}); p.setJointTurns({}); return 0;
+    p.setFrame(eigenToFrame(poeFk(q)));
+
+    // Joint turns: floor(q[i] / 2π), adjusted so remainder stays in (-π, π]
+    std::vector<int> jt(static_cast<int>(DoF_), 0);
+    for (int i = 0; i < static_cast<int>(DoF_); i++) {
+        double t = std::floor(q[i] / (2.0 * M_PI));
+        if (q[i] - t * (2.0 * M_PI) > M_PI) t += 1.0;
+        jt[i] = static_cast<int>(t);
+    }
+    p.setJointTurns(jt);
+
+    // Branch (oi, ii): try each outer×inner combination {0,1}×{0,1} via IK on
+    // the FK result, then keep the candidate whose joint solution is closest to q.
+    // This mirrors the serialArm/sixaxis_1 pattern of computing config from joints.
+    Eigen::Matrix4d T = frameToEigen(defaultBaseOff_.Inverse() * eigenToFrame(poeFk(q)));
+    int best_oi = 0, best_ii = 0;
+    double best_dist = std::numeric_limits<double>::max();
+    for (int oi = 0; oi <= 1; oi++) {
+        for (int ii = 0; ii <= 1; ii++) {
+            std::vector<int> br{oi, ii};
+            Eigen::VectorXd qs(DoF_);
+            int ret = -1;
+            switch (topology_) {
+                case ArmTopology::ThreeParallel:
+                    ret = cartToJntThreeParallel(T, br, qs); break;
+                case ArmTopology::SphericalTwoParallel:
+                    ret = cartToJntSphericalTwoParallel(T, br, qs); break;
+                case ArmTopology::SphericalTwoIntersecting:
+                    ret = cartToJntSphericalTwoIntersecting(T, br, qs); break;
+                case ArmTopology::SevenRSRS:
+                    ret = cartToJntSRS(T, br, qs); break;
+                case ArmTopology::SevenRJointLock:
+                    ret = cartToJntJointLock(T, br, qs); break;
+                default: break;
+            }
+            if (ret == 0) {
+                double d = (qs - q).norm();
+                if (d < best_dist) { best_dist = d; best_oi = oi; best_ii = ii; }
+            }
+        }
+    }
+    p.setBranchFlags({best_oi, best_ii});
+    return 0;
 }
 
 int serialArmPOE::JntToCart(const Eigen::VectorXd& q, const Eigen::VectorXd& qdot,
@@ -815,8 +857,9 @@ void serialArmPOE::UpdateDH(const Eigen::VectorXd&, const Eigen::VectorXd& j, Ei
     nd=j;
 }
 void serialArmPOE::UpdateConfigTurn(const Eigen::VectorXd&, const Eigen::VectorXd&,
-                                     std::vector<int>& bf, std::vector<int>& jt) const {
-    bf.clear(); jt.clear();
+                                     std::vector<int>&, std::vector<int>&) const {
+    // POE arms don't use DH theta/d parameters; branch/turns are computed
+    // directly from joint angles in JntToCart via IK back-classification.
 }
 
 }  // namespace kinematics_lib

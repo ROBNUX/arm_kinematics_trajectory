@@ -109,18 +109,27 @@ def main() -> int:
     print("KUKA KR-like simulation — POE 6-DOF SphericalTwoParallel")
     print("=" * 60)
 
-    pf  = m.Profile(0.05, 0.2, 2.0, 0.1, 0.5, 5.0)
-    jpf = m.JntProfile(0.5, 2.0, 20.0)
+    pf  = m.Profile(0.3, 1.0, 10.0, 0.3, 1.0, 10.0)
+    jpf = m.JntProfile(1.0, 5.0, 50.0)
     rob = m.Robot("poe_arm_6r", PARA, BASE_OFF, BASE_OFF, pf)
+
+    # Pre-compute FK (pure computation — no motion required yet)
+    ok_fk, ready_loc = rob.ForwardKin(READY_JNT)
+    if not ok_fk:
+        print("ERROR: FK at ready pose failed — check POE parameters.")
+        rob.Shutdown()
+        return 1
+    xh, yh, zh = ready_loc.x, ready_loc.y, ready_loc.z
+    ha, hb, hc = ready_loc.A, ready_loc.B, ready_loc.C
+    cfg, turns = ready_loc.G, ready_loc.T
 
     ok, home_loc = rob.ForwardKin(HOME_JNT)
     if not ok:
         print("ERROR: FK at home failed — check POE parameters.")
         rob.Shutdown()
         return 1
-
-    print(f"\nHome FK: x={home_loc.x:.4f}  y={home_loc.y:.4f}  z={home_loc.z:.4f}")
-    print(f"         A={home_loc.A:.4f}  B={home_loc.B:.4f}  C={home_loc.C:.4f}")
+    print(f"\nHome FK:  x={home_loc.x:.4f}  y={home_loc.y:.4f}  z={home_loc.z:.4f}")
+    print(f"Ready FK: x={xh:.4f}  y={yh:.4f}  z={zh:.4f}")
 
     if not rob.SetFeedback(HOME_JNT.reshape(-1, 1)):
         print("ERROR: SetFeedback failed — FK may have failed internally.")
@@ -145,30 +154,19 @@ def main() -> int:
 
     fd = m.FrameData(1, 1, m.IpoMode.WORLD)
 
-    # ── Move to ready pose first (PTP — no IK, always succeeds) ──────────
-    print("\n--- Moving to ready pose (PTP) ---")
+    # ── Queue PTP to ready pose + Demo 1 box all at once (no wait_done between) ──
+    # Reason: wait_done resets the internal motion state machine; all commands
+    # in a sequence must be queued together before calling wait_done.
+    print("\n--- Moving to ready pose (PTP) then Cartesian box ---")
     ok = rob.MovePTPJ(READY_JNT.reshape(-1, 1), 0)
     if not ok:
         print("  ERROR: MovePTPJ to ready pose failed.")
         rob.Shutdown()
         return 1
-    if not wait_done(rob):
-        rob.Shutdown()
-        return 1
+    print("  PTP to ready pose: queued")
 
-    ok_fk, ready_loc = rob.ForwardKin(READY_JNT)
-    if not ok_fk:
-        print("  ERROR: FK at ready pose failed.")
-        rob.Shutdown()
-        return 1
-    xh, yh, zh = ready_loc.x, ready_loc.y, ready_loc.z
-    ha, hb, hc = ready_loc.A, ready_loc.B, ready_loc.C
-    cfg, turns = ready_loc.G, ready_loc.T
-    print(f"  Ready FK: x={xh:.4f}  y={yh:.4f}  z={zh:.4f}")
-
-    # ── Demo 1: Cartesian box in XZ plane ─────────────────────────────────
-    print("\n--- Demo 1: Cartesian box in XZ plane ---")
-    dx, dz = 0.10, 0.08
+    # Keep dx < xh so the box stays in x>0 (avoids IK config flip crossing x=0)
+    dx, dz = 0.05, 0.05
     waypoints = [
         m.LocData(xh + dx, yh, zh,      ha, hb, hc, cfg, turns),
         m.LocData(xh + dx, yh, zh + dz, ha, hb, hc, cfg, turns),
@@ -187,8 +185,9 @@ def main() -> int:
         if wait_done(rob):
             print("  Box path complete.")
 
-        # ── Demo 2: Joint-space PTP sweep ─────────────────────────────────
+        # ── Demo 2: Joint-space PTP sweep (all queued together) ────────────
         print("\n--- Demo 2: Joint-space PTP sweep ---")
+        rob.StartMotion()  # re-arm after wait_done
         rob.SetSpeed(m.Percent(40, 40, 40))
         targets_deg = [
             [ 20, 25, -60,  30,  35,  0],
@@ -197,11 +196,12 @@ def main() -> int:
         ]
         for tgt in targets_deg:
             jnt_tgt = np.array([math.radians(d) for d in tgt])
-            rob.MovePTPJ(jnt_tgt.reshape(-1, 1), 0)
-            wait_done(rob)
-            ok_fk, cart = rob.GetCartFromJnt(jnt_tgt, 6)
+            ok_fk, cart = rob.ForwardKin(jnt_tgt)
             if ok_fk:
-                print(f"  PTP {tgt}: x={cart[0]:.3f} y={cart[1]:.3f} z={cart[2]:.3f}")
+                print(f"  PTP to {tgt} → FK: x={cart.x:.3f} y={cart.y:.3f} z={cart.z:.3f}")
+            rob.MovePTPJ(jnt_tgt.reshape(-1, 1), 0)
+        wait_done(rob)
+        print("  PTP sweep complete.")
 
         # ── Demo 3: FK→IK round-trip ─────────────────────────────────────
         print("\n--- Demo 3: FK→IK round-trip ---")

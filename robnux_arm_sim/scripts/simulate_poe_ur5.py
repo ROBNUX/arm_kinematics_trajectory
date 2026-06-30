@@ -106,8 +106,8 @@ def main() -> int:
     print("UR5-like simulation — POE 6-DOF ThreeParallel arm")
     print("=" * 60)
 
-    pf  = m.Profile(0.05, 0.2, 2.0, 0.1, 0.5, 5.0)
-    jpf = m.JntProfile(0.5, 2.0, 20.0)
+    pf  = m.Profile(0.3, 1.0, 10.0, 0.3, 1.0, 10.0)
+    jpf = m.JntProfile(1.0, 5.0, 50.0)
     rob = m.Robot("poe_arm_6r", PARA, BASE_OFF, BASE_OFF, pf)
 
     ok, home_loc = rob.ForwardKin(HOME_JNT)
@@ -166,8 +166,9 @@ def main() -> int:
         if wait_done(rob):
             print("  Box path complete.")
 
-        # ── Demo 2: joint-space PTP sweep ────────────────────────────────
+        # ── Demo 2: joint-space PTP sweep (all queued together) ────────────
         print("\n--- Demo 2: Joint-space PTP sweep ---")
+        rob.StartMotion()  # re-arm after wait_done
         rob.SetSpeed(m.Percent(40, 40, 40))
         targets_deg = [
             [ 30, -30,  60,  0,  45,  0],
@@ -176,11 +177,12 @@ def main() -> int:
         ]
         for tgt in targets_deg:
             jnt_tgt = np.array([math.radians(d) for d in tgt])
-            rob.MovePTPJ(jnt_tgt.reshape(-1, 1), 0)
-            wait_done(rob)
-            ok_fk, loc = rob.GetCartFromJnt(jnt_tgt, 6)
+            ok_fk, loc = rob.ForwardKin(jnt_tgt)
             if ok_fk:
-                print(f"  PTP {tgt}: x={loc[0]:.3f} y={loc[1]:.3f} z={loc[2]:.3f}")
+                print(f"  PTP to {tgt} → FK: x={loc.x:.3f} y={loc.y:.3f} z={loc.z:.3f}")
+            rob.MovePTPJ(jnt_tgt.reshape(-1, 1), 0)
+        wait_done(rob)
+        print("  PTP sweep complete.")
 
         # ── Demo 3: IK round-trip verification ───────────────────────────
         print("\n--- Demo 3: FK→IK round-trip ---")

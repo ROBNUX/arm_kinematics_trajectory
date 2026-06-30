@@ -39,21 +39,20 @@ D     = [0.33,    0,     0,       0.25,    0,      0.09]
 PARA = np.array([ALPHA + A + THETA + D]).T     # (24×1)
 BASE_OFF = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
 
-DOF      = 6
-HOME_JNT = np.zeros((DOF, 1))
+DOF       = 6
+HOME_JNT  = np.zeros(DOF)
+# J5 (index 4) = 30° keeps wrist away from singularity at J5=0
+READY_JNT = np.array([0.0, 0.0, 0.0, 0.0, math.radians(30), 0.0])
 
 
-def wait_done(rob: m.Robot, poll_s: float = 0.1) -> None:
+def wait_done(rob: m.Robot, poll_s: float = 0.1, timeout: float = 90.0) -> bool:
+    t0 = time.time()
     while not rob.MotionDone():
+        if time.time() - t0 > timeout:
+            print(f"  WARNING: motion did not complete within {timeout}s — trajectory may have failed")
+            return False
         time.sleep(poll_s)
-
-
-def print_fk(rob: m.Robot, label: str, jnt: np.ndarray) -> None:
-    ok, cart = rob.GetCartFromJnt(jnt.flatten(), 7)
-    if ok:
-        print(f"  {label}: x={cart[0]:.4f} y={cart[1]:.4f} z={cart[2]:.4f}")
-    else:
-        print(f"  {label}: FK failed")
+    return True
 
 
 def main() -> int:
@@ -67,7 +66,7 @@ def main() -> int:
     rob = m.Robot("sixaxis_1", PARA, BASE_OFF, BASE_OFF, pf)
 
     # ── home FK ──────────────────────────────────────────────────────────────
-    ok, home_loc = rob.ForwardKin(HOME_JNT.flatten())
+    ok, home_loc = rob.ForwardKin(HOME_JNT)
     if not ok:
         print("ERROR: FK at home position failed — check DH parameters.")
         rob.Shutdown()
@@ -76,25 +75,41 @@ def main() -> int:
     print(f"\nHome: x={home_loc.x:.4f}  y={home_loc.y:.4f}  z={home_loc.z:.4f}")
     print(f"      A={home_loc.A:.4f}  B={home_loc.B:.4f}  C={home_loc.C:.4f}")
     print(f"      branch={home_loc.G}  turn={home_loc.T}")
-    cfg, turns = home_loc.G, home_loc.T
-    # Keep the home Euler orientation throughout Cartesian moves so the
-    # trajectory is not dominated by a large wrist rotation.
-    ha, hb, hc = home_loc.A, home_loc.B, home_loc.C
 
-    rob.SetFeedback(HOME_JNT)
+    # ── ready FK — box center and orientation come from here ─────────────────
+    ok_r, ready_loc = rob.ForwardKin(READY_JNT)
+    if not ok_r:
+        print("ERROR: FK at ready pose failed.")
+        rob.Shutdown()
+        return 1
+
+    print(f"Ready: x={ready_loc.x:.4f}  y={ready_loc.y:.4f}  z={ready_loc.z:.4f}")
+    print(f"       A={ready_loc.A:.4f}  B={ready_loc.B:.4f}  C={ready_loc.C:.4f}")
+    print(f"       branch={ready_loc.G}  turn={ready_loc.T}")
+
+    xh, yh, zh = ready_loc.x, ready_loc.y, ready_loc.z
+    ha, hb, hc = ready_loc.A, ready_loc.B, ready_loc.C
+    cfg, turns  = ready_loc.G, ready_loc.T
+
+    rob.SetFeedback(HOME_JNT.reshape(-1, 1))
     for i in range(DOF):
         rob.SetJntProfile(i, jpf)
 
     rob.StartMotion()
     rob.SetSpeed(m.Percent(60, 60, 60))
 
-    fd = m.FrameData(1, 1, m.IpoMode.WORLD)
-    # reference point near home position
-    xh, yh, zh = home_loc.x, home_loc.y, home_loc.z
+    print("\nROS2 topics now live (/joint_states, /cart_pose, /arm_path).")
+    print("Starting motion in 4 seconds...")
+    time.sleep(4)
 
-    # ── demo 1: Cartesian box path ────────────────────────────────────────────
-    print("\n--- Demo 1: Cartesian box in XZ plane ---")
-    dx, dz = 0.08, 0.06
+    fd = m.FrameData(1, 1, m.IpoMode.WORLD)
+
+    # ── Queue PTP to ready pose + Demo 1 box all at once ─────────────────────
+    print("\n--- Moving to ready pose (PTP) then Cartesian box in XZ plane ---")
+    rob.MovePTPJ(READY_JNT.reshape(-1, 1), 0)
+    print("  PTP to ready pose: queued")
+
+    dx, dz = 0.05, 0.05
     waypoints = [
         m.LocData(xh + dx, yh, zh,      ha, hb, hc, cfg, turns),
         m.LocData(xh + dx, yh, zh + dz, ha, hb, hc, cfg, turns),
@@ -105,43 +120,49 @@ def main() -> int:
     try:
         for i, wp in enumerate(waypoints):
             rob.MoveLine(wp, fd, 5)
-            print(f"  MoveLine to waypoint {i}")
-        wait_done(rob)
-        print("  Box path complete.")
+            print(f"  MoveLine to waypoint {i}: queued")
+        if wait_done(rob):
+            print("  Box path complete.")
 
-        # ── demo 2: arc in XY plane ───────────────────────────────────────────
+        # ── Demo 2: arc in XY plane ───────────────────────────────────────────
         print("\n--- Demo 2: Arc in XY plane ---")
+        rob.StartMotion()  # re-arm after wait_done
+        rob.SetSpeed(m.Percent(60, 60, 60))
         r_arc = 0.05
+        rob.MoveLine(m.LocData(xh - r_arc, yh, zh, ha, hb, hc, cfg, turns), fd, 5)
         arc_via = m.LocData(xh + r_arc, yh + r_arc, zh, ha, hb, hc, cfg, turns)
         arc_end = m.LocData(xh, yh + 2 * r_arc, zh, ha, hb, hc, cfg, turns)
-        rob.MoveLine(m.LocData(xh - r_arc, yh, zh, ha, hb, hc, cfg, turns), fd, 5)
         rob.MoveArc(arc_via, arc_end, fd, 0)
-        wait_done(rob)
-        print("  Arc motion complete.")
+        if wait_done(rob):
+            print("  Arc motion complete.")
 
-        # ── demo 3: joint-space PTP ────────────────────────────────────────────
+        # ── Demo 3: joint-space PTP (all queued together) ─────────────────────
         print("\n--- Demo 3: Joint-space PTP sweep ---")
+        rob.StartMotion()  # re-arm after wait_done
         rob.SetSpeed(m.Percent(40, 40, 40))
         targets_deg = [
             [  15, -15,  0,  0,  30,  0],
             [ -15,  15, -5,  0, -30,  0],
-            [   0,   0,  0,  0,   0,  0],
+            [   0,   0,  0,  0,  30,  0],  # return close to ready pose (J5=30 non-singular)
         ]
         for tgt in targets_deg:
-            jnt_tgt = np.array([[math.radians(d) for d in tgt]]).T
-            rob.MovePTPJ(jnt_tgt, 0)
-            wait_done(rob)
-            print_fk(rob, f"  PTP result {tgt}", jnt_tgt)
+            jnt_tgt = np.array([math.radians(d) for d in tgt])
+            ok_fk, cart = rob.ForwardKin(jnt_tgt)
+            if ok_fk:
+                print(f"  PTP to {tgt} → FK: x={cart.x:.3f} y={cart.y:.3f} z={cart.z:.3f}")
+            rob.MovePTPJ(jnt_tgt.reshape(-1, 1), 0)
+        if wait_done(rob):
+            print("  PTP sweep complete.")
 
-        # ── demo 4: IK round-trip ─────────────────────────────────────────────
+        # ── Demo 4: IK round-trip ─────────────────────────────────────────────
         print("\n--- Demo 4: FK→IK round-trip check ---")
         for q_deg in [[10, -5, 3, 0, 20, 0], [-10, 5, -3, 0, -20, 0]]:
-            jnt = np.array([[math.radians(d) for d in q_deg]]).T
-            ok_fk, loc = rob.ForwardKin(jnt.flatten())
+            jnt = np.array([math.radians(d) for d in q_deg])
+            ok_fk, loc = rob.ForwardKin(jnt)
             if ok_fk:
                 ok_ik, jnt_rec = rob.InverseKin(loc, DOF)
                 if ok_ik:
-                    err = np.linalg.norm(jnt_rec - jnt.flatten())
+                    err = np.linalg.norm(np.array(jnt_rec) - jnt)
                     print(f"  round-trip error: {err:.2e} rad "
                           f"({'PASS' if err < 1e-3 else 'WARN'})")
                 else:
