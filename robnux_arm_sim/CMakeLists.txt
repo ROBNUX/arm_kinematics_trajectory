@@ -38,6 +38,8 @@ install(PROGRAMS
   scripts/simulate_poe_kuka.py
   scripts/simulate_poe_lite6.py
   scripts/record_sim.py
+  scripts/test_fk_ik_sixaxis.py
+  scripts/verify_sixaxis_ik_math.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

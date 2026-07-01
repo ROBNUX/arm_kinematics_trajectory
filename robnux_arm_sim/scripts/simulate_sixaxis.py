@@ -110,7 +110,7 @@ def main() -> int:
 
     xh, yh, zh = box_loc.x, box_loc.y, box_loc.z
     ha, hb, hc = box_loc.A, box_loc.B, box_loc.C
-    cfg, turns  = box_loc.G, box_loc.T
+    cfg, turns = box_loc.G, box_loc.T
 
     # Show gate shape in RViz for 2 s, then teleport to box start (no PTP trace).
     rob.SetFeedback(GATE_JNT.reshape(-1, 1))

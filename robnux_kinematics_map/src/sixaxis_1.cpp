@@ -107,24 +107,29 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
 	double offset_angle = acos((sqr(a_[2]) + sqr(wristToJoint2_length) - sqr(sudo_s4))
                         / (2 * a_[2] * wristToJoint2_length)); 
 
+    // s4_offset is the angle between link a2 and the "sudo_s4" (a3,d3) segment's
+    // own reference axis; the elbow angle q(2) must be measured from 2*s4_offset,
+    // not from +-M_PI (that was the bug: using +-M_PI here reflects the elbow
+    // triangle about the wrong axis and breaks the FK/IK round trip for every
+    // reachable pose, in both overhead and not_overhead branches).
+    double s4_offset = atan(a_[3]/d_[3]); //atan2(a3, s4); , a bug here, we need to make sure s4_offset is <90 degree
     if (not_overhead) {
         if (!righty) {// if the configuration is blow
             q(1) = angle_xyz + offset_angle;
-            q(2) = -M_PI + a2s4_angle;
+            q(2) = 2 * s4_offset + a2s4_angle;
         } else {// above
             q(1) = angle_xyz - offset_angle;
-            q(2) = M_PI - a2s4_angle;
-        } 
+            q(2) = 2 * s4_offset - a2s4_angle;
+        }
     } else { // overhead
         if (!righty) {// if the configuration is below
             q(1) = -angle_xyz + offset_angle;
-            q(2) = -M_PI + a2s4_angle;
+            q(2) = 2 * s4_offset + a2s4_angle;
         } else { // above
             q(1) = -angle_xyz - offset_angle;
-            q(2) = M_PI - a2s4_angle;
+            q(2) = 2 * s4_offset - a2s4_angle;
         }
     }
-	double s4_offset = atan(a_[3]/d_[3]); //atan2(a3, s4); , a bug here, we need to make sure s4_offset is <90 degree  
     q(2) -= s4_offset;
     
 
@@ -162,44 +167,29 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     double alpha, beta, gamma;
     wristRotation.GetEulerZYZ(&alpha, &beta, &gamma);
 
-    if (wristState) {  // non-flip
-       if (beta > 0) {
-          q(3) = alpha;
-          q(4) = beta;
-          q(5) = gamma;
+    // GetEulerZYZ always returns beta in [0, pi] -- it cannot itself tell us
+    // which of the two valid (q3,q4,q5)/(q3+pi,-q4,q5+pi) wrist solutions the
+    // caller wants, so branching on the sign of beta here (as the old code
+    // did) is dead logic that made wristState select the wrong solution (or
+    // no solution at all). wristState alone must pick the branch: non-flip
+    // takes q4=+beta (and renormalizes alpha/gamma by +-pi to compensate),
+    // flip takes q4=-beta (alpha/gamma used as returned).
+    if (wristState) {  // non-flip: q4 = +beta
+       q(4) = beta;
+       if (alpha > 0){
+         q(3) = alpha - M_PI;
        } else {
-          q(4) = -beta;
-          // both can are right solutions , we use the one that our in math range             
-          if (alpha > 0){ 
-            q(3) = alpha - M_PI;
-          } else {
-            q(3) = alpha + M_PI;
-          }    
-          if (gamma > 0){       
-            q(5) = gamma - M_PI;
-          } else {   
-            q(5) = gamma + M_PI;
-          }       
+         q(3) = alpha + M_PI;
        }
-    } else {  // flip
-       if (beta < 0) {
-          q(3) = alpha;
-          q(4) = beta;
-          q(5) = gamma;
+       if (gamma > 0){
+         q(5) = gamma - M_PI;
        } else {
-          q(4) = -beta;
-          // both can are right solutions , we use the one that our in math range             
-          if (alpha > 0){ 
-            q(3) = alpha - M_PI;
-          } else {
-            q(3) = alpha + M_PI;
-          }    
-          if (gamma > 0){       
-            q(5) = gamma - M_PI;
-          } else {   
-            q(5) = gamma + M_PI;
-          }       
-       } 
+         q(5) = gamma + M_PI;
+       }
+    } else {  // flip: q4 = -beta
+       q(3) = alpha;
+       q(4) = -beta;
+       q(5) = gamma;
     }
            
 
@@ -263,10 +253,21 @@ void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
         if (i==2) { // for above and below (or elbow up and down)
             double phi_s4_a3 = atan(a_[3] / d_[3]);
             double qelbow = tmp_q + phi_s4_a3;  // -M_PI/2   (remove -M_PI/2 as qelbow is already about vertical home pose)
-            if ((qelbow >= 0 && qelbow < M_PI) || (qelbow >= -2 * M_PI && qelbow< -M_PI)) {
-                branchFlags[1] = 1; // above
+            // CartToJnt's law-of-cosines elbow solution is symmetric about
+            // 2*phi_s4_a3 (q(2) = 2*s4_offset +- a2s4_angle), not about 0/PI,
+            // so the above/below split must be taken relative to that same
+            // reference angle -- splitting at 0/PI (as before) disagreed with
+            // CartToJnt for roughly half of all poses.
+            double elbowShifted = qelbow - 2 * phi_s4_a3;
+            while (elbowShifted > M_PI) {
+                elbowShifted -= 2 * M_PI;
             }
-            if ((qelbow < 0 && qelbow>-M_PI) || (qelbow >= M_PI && qelbow < 2 * M_PI)) {
+            while (elbowShifted <= -M_PI) {
+                elbowShifted += 2 * M_PI;
+            }
+            if (elbowShifted <= 0) {
+                branchFlags[1] = 1; // above
+            } else {
                 branchFlags[1] = 0; // below
             }
         }
@@ -285,7 +286,13 @@ void  SixAxis_1::UpdateConfigTurn(const Eigen::VectorXd& theta,
     // q_tmp[1] -= theta_[1];
     // q_tmp[2] -= theta_[2];
     // we followed kuka manual for overhead calculation
-    double xAtFrame1 = a_[1] + a_[2] * sin(q_tmp(1)) + 
+    // NOTE: this must match the radial-reach sign convention used by CartToJnt
+    // (q(0) = atan2(y,x) directly when this is >=0, i.e. not_overhead), which
+    // is R = a1 + a2*cos(t1) + a3*cos(t1+t2) - d3*sin(t1+t2). The d_[3] term
+    // was previously added instead of subtracted, which flipped the
+    // overhead/not_overhead classification for any pose where the d3 term
+    // dominates (e.g. a wrist-up pose can be misclassified as not_overhead).
+    double xAtFrame1 = a_[1] + a_[2] * sin(q_tmp(1)) -
                     d_[3] * sin(q_tmp(1) + q_tmp(2)) + a_[3] * cos(q_tmp(1) + q_tmp(2));
     if (xAtFrame1 >= 0) {
        branchFlags[0] = 1; // no overhead , basic, or right(for mitsubishi)
