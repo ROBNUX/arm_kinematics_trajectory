@@ -442,13 +442,8 @@ bool serialArm::PickSubJacobian(const Eigen::MatrixXd& Jp_t,
 int serialArm::CalcPassive(const Eigen::VectorXd& q,
                    const Pose& p,
                    Eigen::VectorXd& qpassive) {
-    std::ostringstream strs;
-    strs.str("");
-    strs << GetName() << ":" << "This function shouldn't be called for serialArm "
-         << __FUNCTION__ << " line " << __LINE__ << std::endl;
-    LOG_ALARM(strs);
+    // Serial arms have no passive joints; caller handles -1 by publishing active joints only.
     return -1;
-
   }
 
 

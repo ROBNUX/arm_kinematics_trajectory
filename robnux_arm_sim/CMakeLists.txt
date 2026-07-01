@@ -37,6 +37,7 @@ install(PROGRAMS
   scripts/simulate_poe_panda.py
   scripts/simulate_poe_kuka.py
   scripts/simulate_poe_lite6.py
+  scripts/record_sim.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
