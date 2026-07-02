@@ -135,7 +135,9 @@ def _xyz_gantry_spec() -> ArmSpec:
 
 
 def _xyz_ur_spec() -> ArmSpec:
-    ALPHA = [0.0, PI / 2, -PI / 2, -PI / 2, PI / 2]
+    # UJNT tail alpha=[0,-PI/2]: at q3=q4=0, joint3 axis=world Z (pan),
+    # joint4 axis=world Y (tilt) -- must match UJNT::CartToJnt's derivation.
+    ALPHA = [0.0, PI / 2, -PI / 2, 0.0, -PI / 2]
     A = [0.0, 0.0, 0.0, 0.0, 0.0]
     THETA = [0.0, 0.0, 0.0, 0.0, 0.0]
     D = [0.0, 0.0, 0.0, 0.05, 0.05]

@@ -10,7 +10,10 @@ DH parameters fed to xyz_ur CreateRobot (concatenation of both sub-modules):
   XYZ part (3-DOF):
     alpha=[0, PI/2, -PI/2], a=[0,0,0], theta=[0,0,0], d=[0,0,0]
   UJNT part (2-DOF, R-R U-joint):
-    alpha=[-PI/2, PI/2], a=[0,0], theta=[0,0], d=[0.05, 0.05]
+    alpha=[0, -PI/2], a=[0,0], theta=[0,0], d=[0.05, 0.05]
+    (chosen so that at q3=q4=0, joint3's axis is world Z (pan) and
+    joint4's axis is world Y (tilt) -- see UJNT::CartToJnt for the
+    matching closed-form IK derivation)
 
 Combined: 5-DOF vector (XYZ first, then UJNT appended).
 
@@ -33,8 +36,8 @@ PI = math.pi
 # ─────────────────────────────────────── geometry ────────────────────────────
 # XYZ_UR SetGeometry expects [xyz_params | ujnt_params] interleaved in DH format
 # Since XYZ_UR internally builds two sub-robots, we pass the combined DH:
-# alpha=[0, PI/2,-PI/2, -PI/2, PI/2]  (3 XYZ + 2 UJNT)
-ALPHA = [0.0,    PI/2,  -PI/2,  -PI/2,   PI/2]
+# alpha=[0, PI/2,-PI/2, 0, -PI/2]  (3 XYZ + 2 UJNT)
+ALPHA = [0.0,    PI/2,  -PI/2,  0.0,   -PI/2]
 A     = [0.0,    0.0,    0.0,    0.0,     0.0 ]
 THETA = [0.0,    0.0,    0.0,    0.0,     0.0 ]
 D     = [0.0,    0.0,    0.0,    0.05,    0.05]

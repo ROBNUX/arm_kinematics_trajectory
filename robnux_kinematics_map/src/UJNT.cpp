@@ -43,27 +43,32 @@ int UJNT::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     Frame relTip = defaultBaseOff_.Inverse() *  tip;
 
     Rotation r =  relTip.getRotation();
-    // JntToCart's DH chain (alpha=[-pi/2,+pi/2], both theta home offsets
-    // 0) followed by a final RotX(-pi/2) gives, from a from-scratch
-    // Craig-DH derivation:
-    //   UnitX() = (cos(q0)*cos(q1), sin(q1), -sin(q0)*cos(q1))
+    // Default UJNT geometry is alpha=[0, -pi/2] (both theta home offsets 0),
+    // chosen so that at q0=q1=0 joint0's axis is world Z and joint1's axis
+    // is world Y. JntToCart's raw DH chain with this alpha gives, from a
+    // from-scratch Craig-DH derivation:
+    //   UnitX() = (cos(q0)*cos(q1), sin(q0)*cos(q1), -sin(q1))
+    // (JntToCart used to right-multiply the DH-chain frame by a fixed
+    // RotX(-pi/2) "for easy IK" -- removed, since right-multiplying by any
+    // RotX(theta) only mixes UnitY()/UnitZ() and never changes UnitX(), so
+    // it was contributing nothing this IK (or its "flip" branch below,
+    // which is also UnitX()-only) actually depends on.)
     // With only 2 controllable DOF this mechanism reaches a 2-parameter
     // family of orientations (it cannot roll about UnitX() independently),
     // so a reachable target UnitX() has exactly two joint solutions --
     // cos(q1)>=0 (non-flip) and cos(q1)<0 (flip) -- and each reconstructs
-    // the *entire* rotation matrix exactly, not merely UnitX(). The
-    // previous acos(...)-M_PI/2 / atan2-on-projection formula here did not
-    // invert this map at all: FK(CartToJnt(FK(q))) reproduced neither q
-    // nor the orientation (confirmed by round-trip testing, ~1-2.5 rad
-    // orientation error on essentially every sample).
+    // the *entire* rotation matrix exactly, not merely UnitX().
+    // NOTE: if SetGeometry is ever called with a different alpha, this
+    // closed form must be re-derived to match -- it is not a general
+    // 2-DOF-wrist inverse.
     Vec rx = r.UnitX();
-    double sin_q1 = std::max(-1.0, std::min(1.0, rx.y()));
+    double sin_q1 = std::max(-1.0, std::min(1.0, -rx.z()));
     if (branch[2]) {   // nonflip: cos(q1) >= 0
        q(1) = asin(sin_q1);
-       q(0) = atan2(-rx.z(), rx.x());
+       q(0) = atan2(rx.y(), rx.x());
     } else {   // flip: cos(q1) < 0
        q(1) = M_PI - asin(sin_q1);
-       q(0) = atan2(rx.z(), -rx.x());
+       q(0) = atan2(-rx.y(), -rx.x());
     }
    
     std::vector<int>  jointTurns;
@@ -111,11 +116,6 @@ int UJNT::JntToCart(const Eigen::VectorXd& q,
                                       theta_tmp[i]);
     }
 
-    // multiply this to make sure  the final rotation is R_x(alpha[0])R_z(yaw)R_y(pitch) for easy IK above
-    Rotation r = Rotation::RotX(-M_PI / 2.0);
-    Frame tmp1;
-    tmp1.setRotation(r);
-    tmp = tmp * tmp1;
     // config flags
     std::vector<int>  branchFlags;
     //turn flags
@@ -135,19 +135,10 @@ int UJNT::CalcJacobian(const Eigen::VectorXd& kine_para,
                     Eigen::MatrixXd& Jp_t,
                     Eigen::MatrixXd& Jp_r,
                     bool world_jac) {
-  int ret = serialArm::CalcJacobian(kine_para, p, Jp_t, Jp_r, world_jac);
-  if (ret < 0) {
-    return ret;
-  }
-  
-  Frame tmp;
-  p.getFrame(&tmp);
-  Rotation r = Rotation::RotX(-M_PI / 2.0);
-  Frame tmp1;
-  tmp1.setRotation(r);
-  tmp = tmp * tmp1;
-  p.setFrame(tmp);
-  return 0;
+  // No post-multiply here to match JntToCart, which no longer applies one
+  // either -- serialArm::CalcJacobian's `p` (raw DH-chain frame) and
+  // JntToCart's `p` must use the same orientation convention.
+  return serialArm::CalcJacobian(kine_para, p, Jp_t, Jp_r, world_jac);
 }
 
 void  UJNT::UpdateConfigTurn(const Eigen::VectorXd& theta,
