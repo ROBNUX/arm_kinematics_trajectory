@@ -29,6 +29,8 @@ install(PROGRAMS
   scripts/run_simulation.py
   scripts/simulate_scara.py
   scripts/simulate_sixaxis.py
+  scripts/simulate_6020_scara.py
+  scripts/simulate_rv2fr.py
   scripts/simulate_xyz_gantry.py
   scripts/simulate_xyz_ur.py
   scripts/simulate_quattro.py

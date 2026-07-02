@@ -24,6 +24,8 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+import robot_model_loader
+
 PI = math.pi
 BASE_OFF = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
 
@@ -171,6 +173,43 @@ def _sixaxis_spec() -> ArmSpec:
     )
 
 
+def _scara6020_spec() -> ArmSpec:
+    # Real robot_model/6020_scara.txt DH data (not a synthetic demo geometry)
+    # -- see robot_model_loader.py for how the flat file maps onto
+    # [alpha|a|theta|d]. a=[0,0.325,0.275,0] lands exactly on scara.cpp's own
+    # a_[1]/a_[2] usage; d=[0,0,0,0] means no base-height/tool offset is
+    # baked into this particular file (shoulder axis sits at world Z=0).
+    para = robot_model_loader.build_para("6020_scara.txt", 4)
+    return ArmSpec(
+        name="scara_6020", robname="scara", dof=4, para=para,
+        profile_args=(0.3, 1.0, 10.0, 0.3, 1.0, 10.0),
+        joint_bounds=[(-PI * 0.9, PI * 0.9), (-PI * 0.9, PI * 0.9),
+                      (-0.14, 0.04), (-PI * 0.9, PI * 0.9)],
+        notes="real 6020 SCARA model (325mm+275mm reach) for further "
+              "regression-testing scara.cpp beyond the synthetic demo geometry",
+    )
+
+
+def _rv2fr_spec() -> ArmSpec:
+    # Real robot_model/RV_2FR_D.txt DH data (Mitsubishi RV-2FR-D 6-axis arm)
+    # -- 25 values = 4*6 core [alpha|a|theta|d] + 1 trailing tool length,
+    # folded into d[5] by robot_model_loader (matching sixaxis_1.cpp's own
+    # use of d_[5] as the wrist-to-flange offset). Unlike the synthetic demo
+    # sixaxis_1 geometry, a_[1]=0 here (shoulder axis intersects the waist
+    # axis), so the near-base-axis (SIXDOF_HEADDIST) singularity is *more*
+    # prevalent under random sampling -- see ik_fail_tolerance below.
+    para = robot_model_loader.build_para("RV_2FR_D.txt", 6)
+    return ArmSpec(
+        name="rv2fr", robname="sixaxis_1", dof=6, para=para,
+        profile_args=(0.05, 0.2, 2.0, 0.1, 0.5, 5.0),
+        joint_bounds=[(-PI * 0.9, PI * 0.9)] * 4 + [(-PI * 0.7, PI * 0.7)] + [(-PI * 0.9, PI * 0.9)],
+        singular_guards=[(4, 0.15)],
+        ik_fail_tolerance=0.35,
+        notes="real Mitsubishi RV-2FR-D model for further regression-testing "
+              "sixaxis_1.cpp beyond the synthetic demo geometry",
+    )
+
+
 def _poe6_spec(name, axes, tl_pos, tool_offset, joint_bounds) -> ArmSpec:
     para = _make_poe_params(axes, tl_pos, tool_offset)
     return ArmSpec(
@@ -258,6 +297,8 @@ def build_all_specs() -> List[ArmSpec]:
         _xyz_gantry_spec(),
         _xyz_ur_spec(),
         _sixaxis_spec(),
+        _scara6020_spec(),
+        _rv2fr_spec(),
         _poe_ur5_spec(),
         _poe_kuka_spec(),
         _poe_lite6_spec(),

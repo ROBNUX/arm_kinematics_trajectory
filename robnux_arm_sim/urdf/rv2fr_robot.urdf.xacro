@@ -1,0 +1,254 @@
+<?xml version="1.0" ?>
+<!--
+  RV-2FR-D 6-DOF serial arm URDF — parameters loaded from
+  robot_model/RV_2FR_D.txt (Craig DH convention), read as
+  [alpha x6 | a x6 | theta x6 | d x6 | tool_length] (25 values; the trailing
+  scalar is folded into d[5], matching sixaxis_1.cpp's use of d_[5] as the
+  wrist-to-flange length)  — see scripts/simulate_rv2fr.py for the loader.
+
+  DH parameters:
+    i   alpha[i]     a[i]     theta[i]     d[i]
+    0    0           0        0            0.295
+    1   -PI/2        0       -PI/2         0
+    2    0           0.230    PI/2         0
+    3    PI/2       -0.050    0            0.270
+    4   -PI/2        0        0            0
+    5    PI/2        0        0            0.070   (0 + 0.07 tool length)
+
+  Joint origins are each DH_Craig1989(a[i],alpha[i],d[i],theta[i]) evaluated
+  at q=0  — computed numerically (not hand-derived) from these exact values,
+  so the visual model matches sixaxis_1.cpp's FK bit-for-bit. theta[i] here
+  is the DH home offset baked into the fixed part of the transform, same as
+  the existing sixaxis_robot.urdf.xacro convention:
+    JOINT_0_ACT: xyz=(0,0,0.295)          rpy=(0,0,0)
+    JOINT_1_ACT: xyz=(0,0,0)              rpy=(-PI/4,-PI/2,-PI/4)
+    JOINT_2_ACT: xyz=(0.23,0,0)           rpy=(0,0,PI/2)
+    JOINT_3_ACT: xyz=(-0.05,-0.27,0)      rpy=(PI/2,0,0)
+    JOINT_4_ACT: xyz=(0,0,0)              rpy=(-PI/2,0,0)
+    JOINT_5_ACT: xyz=(0,-0.07,0)          rpy=(PI/2,0,0)
+
+  (J1's rpy hits gimbal lock at pitch=-PI/2; roll=yaw=-PI/4 is one verified
+  -correct decomposition  — reconstructing Rz(yaw)Ry(pitch)Rx(roll) from
+  these three numbers reproduces the DH-derived rotation matrix exactly.)
+-->
+<robot name="rv2fr_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="PI"  value="3.14159265358979"/>
+  <xacro:property name="D0"  value="0.295"/>   <!-- d[0]: waist height -->
+  <xacro:property name="A2"  value="0.230"/>   <!-- a[2]: upper arm length -->
+  <xacro:property name="D5"  value="0.070"/>   <!-- d[5]: wrist-to-tool length -->
+
+  <xacro:property name="LINK_R"    value="0.026"/>
+  <xacro:property name="LINK_MASS" value="1.5"/>
+
+  <!-- ── world ─────────────────────────────────────────────────── -->
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base: visual pillar up to shoulder height D0 -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 ${D0/2}" rpy="0 0 0"/>
+      <mass value="8.0"/>
+      <inertia ixx="0.08" ixy="0" ixz="0" iyy="0.08" iyz="0" izz="0.04"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 ${D0/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.055" length="${D0}"/></geometry>
+      <material name="base_grey"><color rgba="0.4 0.4 0.4 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${D0/2}" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.055" length="${D0}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J0: waist ── xyz=(0,0,D0) ─────────────────────────────── -->
+  <joint name="JOINT_0_ACT" type="revolute">
+    <parent link="base_link"/>
+    <child  link="link_1"/>
+    <origin xyz="0 0 ${D0}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="150" velocity="2.09"/>
+    <dynamics damping="0.5" friction="0.2"/>
+  </joint>
+
+  <!-- link_1: waist hub  — J1 is colocated (a[1]=0), so no cylinder stub -->
+  <link name="link_1">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R * 1.3}"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R * 1.3}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J1: shoulder pitch ── xyz=(0,0,0) rpy=(-PI/4,-PI/2,-PI/4) ── -->
+  <joint name="JOINT_1_ACT" type="revolute">
+    <parent link="link_1"/>
+    <child  link="link_2"/>
+    <origin xyz="0 0 0" rpy="${-PI/4} ${-PI/2} ${-PI/4}"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI/2}" upper="${PI/2}" effort="150" velocity="2.09"/>
+    <dynamics damping="0.5" friction="0.2"/>
+  </joint>
+
+  <!-- link_2: upper arm from J1 to J2 (A2 along X of frame 1) -->
+  <link name="link_2">
+    <inertial>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <mass value="${LINK_MASS}"/>
+      <inertia ixx="0.015" ixy="0" ixz="0" iyy="0.015" iyz="0" izz="0.004"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R * 1.1}"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${LINK_R}" length="${A2}"/></geometry>
+      <material name="silver"><color rgba="0.8 0.8 0.85 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="${A2/2} 0 0" rpy="0 ${PI/2} 0"/>
+      <geometry><cylinder radius="${LINK_R}" length="${A2}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J2: elbow ── xyz=(0.23,0,0) rpy=(0,0,PI/2) ────────────── -->
+  <joint name="JOINT_2_ACT" type="revolute">
+    <parent link="link_2"/>
+    <child  link="link_3"/>
+    <origin xyz="${A2} 0 0" rpy="0 0 ${PI/2}"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="100" velocity="2.61"/>
+    <dynamics damping="0.3" friction="0.1"/>
+  </joint>
+
+  <!-- link_3: forearm from J2 to J3, offset=(-0.05,-0.27,0) in link_3's own frame -->
+  <link name="link_3">
+    <inertial>
+      <origin xyz="-0.025 -0.135 0" rpy="${PI/2} -0.183111 -0.183111"/>
+      <mass value="${LINK_MASS * 0.8}"/>
+      <inertia ixx="0.012" ixy="0" ixz="0" iyy="0.012" iyz="0" izz="0.003"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R * 1.0}"/></geometry>
+      <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
+    </visual>
+    <!-- forearm cylinder along the (-0.05,-0.27,0) direction to J3 -->
+    <visual>
+      <origin xyz="-0.025 -0.135 0" rpy="${PI/2} -0.183111 -0.183111"/>
+      <geometry><cylinder radius="${LINK_R * 0.85}" length="0.2746"/></geometry>
+      <material name="silver"><color rgba="0.8 0.8 0.85 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="-0.025 -0.135 0" rpy="${PI/2} -0.183111 -0.183111"/>
+      <geometry><cylinder radius="${LINK_R * 0.85}" length="0.2746"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J3: wrist yaw ── xyz=(-0.05,-0.27,0) rpy=(PI/2,0,0) ───── -->
+  <joint name="JOINT_3_ACT" type="revolute">
+    <parent link="link_3"/>
+    <child  link="link_4"/>
+    <origin xyz="-0.050 -0.270 0" rpy="${PI/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="60" velocity="3.14"/>
+    <dynamics damping="0.2" friction="0.1"/>
+  </joint>
+
+  <!-- link_4: wrist hub at J3/J4  — J4 is colocated (a[4]=0) -->
+  <link name="link_4">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.002" ixy="0" ixz="0" iyy="0.002" iyz="0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R}"/></geometry>
+      <material name="orange"><color rgba="1.0 0.5 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="${LINK_R}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J4: wrist pitch ── xyz=(0,0,0) rpy=(-PI/2,0,0) ────────── -->
+  <joint name="JOINT_4_ACT" type="revolute">
+    <parent link="link_4"/>
+    <child  link="link_5"/>
+    <origin xyz="0 0 0" rpy="${-PI/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI * 0.75}" upper="${PI * 0.75}" effort="30" velocity="3.66"/>
+    <dynamics damping="0.1" friction="0.05"/>
+  </joint>
+
+  <!-- link_5: wrist arm from J4 to J5 (D5 along -Y of frame 4) -->
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0 ${-D5/2} 0" rpy="${PI/2} 0 0"/>
+      <mass value="0.3"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 ${-D5/2} 0" rpy="${PI/2} 0 0"/>
+      <geometry><cylinder radius="0.020" length="${D5}"/></geometry>
+      <material name="dark"><color rgba="0.25 0.25 0.25 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 ${-D5/2} 0" rpy="${PI/2} 0 0"/>
+      <geometry><cylinder radius="0.020" length="${D5}"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ── J5: wrist roll ── xyz=(0,-0.07,0) rpy=(PI/2,0,0) ──────── -->
+  <joint name="JOINT_5_ACT" type="revolute">
+    <parent link="link_5"/>
+    <child  link="link_6"/>
+    <origin xyz="0 ${-D5} 0" rpy="${PI/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-PI}" upper="${PI}" effort="20" velocity="5.23"/>
+    <dynamics damping="0.05" friction="0.02"/>
+  </joint>
+
+  <!-- link_6: end-effector  — TCP is at the origin of this frame -->
+  <link name="link_6">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.10"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.014"/></geometry>
+      <material name="orange"><color rgba="1.0 0.5 0.0 1"/></material>
+    </visual>
+    <visual>
+      <origin xyz="0 0 0.022" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.005" length="0.044"/></geometry>
+      <material name="red"><color rgba="1.0 0.0 0.0 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><sphere radius="0.014"/></geometry>
+    </collision>
+  </link>
+
+</robot>
