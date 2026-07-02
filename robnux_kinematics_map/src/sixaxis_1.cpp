@@ -101,37 +101,44 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
         }
     }
 
-	double a2s4_angle = acos((sqr(a_[2]) + sqr(sudo_s4) - sqr(wristToJoint2_length))
-                        / (2 * a_[2] * sudo_s4)); // the angle between a2 and s4 (upper and lower arms \)
-
 	double offset_angle = acos((sqr(a_[2]) + sqr(wristToJoint2_length) - sqr(sudo_s4))
-                        / (2 * a_[2] * wristToJoint2_length)); 
+                        / (2 * a_[2] * wristToJoint2_length));
 
-    // s4_offset is the angle between link a2 and the "sudo_s4" (a3,d3) segment's
-    // own reference axis; the elbow angle q(2) must be measured from 2*s4_offset,
-    // not from +-M_PI (that was the bug: using +-M_PI here reflects the elbow
-    // triangle about the wrong axis and breaks the FK/IK round trip for every
-    // reachable pose, in both overhead and not_overhead branches).
-    double s4_offset = atan(a_[3]/d_[3]); //atan2(a3, s4); , a bug here, we need to make sure s4_offset is <90 degree
-    if (not_overhead) {
-        if (!righty) {// if the configuration is blow
-            q(1) = angle_xyz + offset_angle;
-            q(2) = 2 * s4_offset + a2s4_angle;
-        } else {// above
-            q(1) = angle_xyz - offset_angle;
-            q(2) = 2 * s4_offset - a2s4_angle;
-        }
-    } else { // overhead
-        if (!righty) {// if the configuration is below
-            q(1) = -angle_xyz + offset_angle;
-            q(2) = 2 * s4_offset + a2s4_angle;
-        } else { // above
-            q(1) = -angle_xyz - offset_angle;
-            q(2) = 2 * s4_offset - a2s4_angle;
-        }
+    double q1_sign = not_overhead ? 1.0 : -1.0;
+    if (!righty) {// if the configuration is below
+        q(1) = q1_sign * angle_xyz + offset_angle;
+    } else {// above
+        q(1) = q1_sign * angle_xyz - offset_angle;
     }
-    q(2) -= s4_offset;
-    
+
+    // q(2) (elbow): from-scratch, chirality-general solve, replacing the old
+    // "2*s4_offset +- a2s4_angle" law-of-cosines formula. That formula (and
+    // the s4_offset=atan(a_[3]/d_[3]) it was built from) implicitly assumed
+    // alpha_[3]<0 -- it produced a *plausible-looking* q(2) with a genuine
+    // FK/IK round trip for that sign (see project_sixaxis_ik_bugs memory),
+    // but silently returned wrong answers (not errors) for the alpha_[3]>0
+    // convention real robots use too (e.g. the Mitsubishi RV-2FR-D:
+    // ~0.5m position error on ~90% of poses, not a crash, which is what
+    // made it easy to miss until tested against a second real DH set).
+    //
+    // Frame1 (waist * shoulder, using the already-solved q(0)/q(1) "raw"
+    // values -- q(1) hasn't had its -(theta_[1]+PI/2) offset subtracted
+    // yet at this point) locates the elbow: elbow = T1 * (a_[2],0,0).
+    // Expressing the elbow->wrist vector in T1's own axes and comparing its
+    // direction against the (a_[3],d_[3]) offset's own local direction
+    // (-sin(alpha_[3])*d_[3], a_[3]) gives q(2)'s DH theta directly via
+    // atan2 -- exact for *any* alpha_[3] (not just +-PI/2), no separate
+    // sign case needed. Derived from the Craig-DH position equations and
+    // verified (100% FK/IK round trip, both alpha_[3] signs, all 8 branch
+    // codes) in verify_sixaxis_ik_math.py before porting here.
+    Frame T1 = Frame::DH_Craig1989(0, 0, d_[0], q(0))
+             * Frame::DH_Craig1989(a_[1], alpha_[1], 0, q(1) - M_PI / 2.0);
+    Vec elbow = T1.getRotation() * Vec(a_[2], 0, 0) + T1.getTranslation();
+    Vec elbowToWrist = T1.getRotation().Inverse() * (p - elbow);
+    double refAngle = atan2(-sin(alpha_[3]) * d_[3], a_[3]);
+    double q2_dh = atan2(elbowToWrist.y(), elbowToWrist.x()) - refAngle - M_PI;
+    q(2) = q2_dh + M_PI / 2.0;
+
 
     std::vector<int>  jointTurns;
     pos.getJointTurns(&jointTurns);
@@ -164,6 +171,23 @@ int SixAxis_1::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     JntToCart(q, tmp);
     Rotation r=tmp.getRotation();
     Rotation wristRotation = r.Inverse() * R;
+
+    // A spherical wrist built with alpha_[3..5] = [s,-s,s] is the mirror
+    // image (through the plane perpendicular to the local Z axis) of one
+    // built with alpha_[3..5] = [-s,s,-s], for the *same* joint angles --
+    // verified: R_mirror(q3,q4,q5) = M * R_default(q3,q4,q5) * M with
+    // M = diag(1,1,-1). The GetEulerZYZ-based extraction below was derived
+    // for alpha_[4]>0 (this file's original convention); for alpha_[4]<0
+    // geometries (e.g. Mitsubishi RV-2FR-D) reflect wristRotation by M
+    // first -- since M*M=I, this maps wristRotation = R_mirror(q3,q4,q5)
+    // onto M*wristRotation*M = R_default(q3,q4,q5), the exact equation the
+    // unchanged formula below already solves correctly.
+    if (alpha_[4] < 0) {
+      wristRotation = Rotation(
+           wristRotation(0, 0),  wristRotation(0, 1), -wristRotation(0, 2),
+           wristRotation(1, 0),  wristRotation(1, 1), -wristRotation(1, 2),
+          -wristRotation(2, 0), -wristRotation(2, 1),  wristRotation(2, 2));
+    }
     double alpha, beta, gamma;
     wristRotation.GetEulerZYZ(&alpha, &beta, &gamma);
 
