@@ -976,6 +976,23 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
       return false;
     }
 
+    // DoF_ here is armMap_->GetActDoF() (the actuator count), which for an
+    // over-actuated parallel mechanism (e.g. Quattro: 4 actuators driving 3
+    // Cartesian DOF) differs from GetDoF(). jnt1 below is always sized DoF_
+    // and CartToJnt fills all DoF_ entries, so the caller-supplied output
+    // buffer must match -- otherwise the final "jnt = jnt1" assignment
+    // resizes a fixed-size Eigen::Ref, which aborts the process instead of
+    // failing gracefully.
+    if (static_cast<size_t>(jnt.size()) != DoF_) {
+       strs.str("");
+       strs << "InverseKin: output joint buffer has size " << jnt.size()
+            << " but this robot needs " << DoF_
+            << " (use GetActDoF()/the actuator count, not the Cartesian DoF, "
+               "when sizing the buffer passed to InverseKin)" << std::endl;
+       LOG_ERROR(strs);
+       return false;
+    }
+
     //std::vector<double> jnt1(DoF_, 0);
     Eigen::VectorXd jnt1(DoF_);
     

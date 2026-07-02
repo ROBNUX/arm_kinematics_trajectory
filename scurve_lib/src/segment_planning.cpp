@@ -368,7 +368,11 @@ std::vector<double> SegmentPlanning::traj_segment_planning(
          << abs_min_pos_to_vf
          << " > abs(p_end-p_start)= " << fabs(p_end - p_start) << std::endl;
     LOG_ERROR(strs);
-    return outValues1;
+    // Return empty (not the zero-filled outValues1) so callers can tell this
+    // apart from a real, planned zero-duration phase -- returning
+    // outValues1 here used to let a genuinely infeasible boundary condition
+    // silently masquerade as a valid all-zero-duration trajectory.
+    return std::vector<double>();
   } else {  // then the motion will be:
     double abs_v;
     // from v0 to reach vf with dis=minPos_to_vf, then then plan the rest of the
@@ -574,6 +578,15 @@ std::vector<JerkTimePair> SegmentPlanning::calculate_jerk_sign_and_duration(
         timeValues = traj_segment_planning(
             p_start, p_end - minPos_to_zero - minPos_to_vf, abs_v_end,
             abs_v_end, v_max, a_max, j_max);
+        if (timeValues.size() < 5) {
+          strs.str("");
+          strs << __FUNCTION__ << ":" << __LINE__
+               << ": traj_segment_planning found no solution for the "
+                  "dominant-direction phase"
+               << std::endl;
+          LOG_ERROR(strs);
+          return emptyPairs;
+        }
         t_jrk_not_used = timeValues[0];
         t_acc_not_used = timeValues[1];
         t_jrk_dominant = timeValues[2];
@@ -650,6 +663,15 @@ std::vector<JerkTimePair> SegmentPlanning::calculate_jerk_sign_and_duration(
         timeValues = traj_segment_planning(
             p_start, p_end - minPos_to_zero - minPos_to_vf, abs_v_start,
             abs_v_start, v_max, a_max, j_max);
+        if (timeValues.size() < 5) {
+          strs.str("");
+          strs << __FUNCTION__ << ":" << __LINE__
+               << ": traj_segment_planning found no solution for the "
+                  "dominant-direction phase"
+               << std::endl;
+          LOG_ERROR(strs);
+          return emptyPairs;
+        }
 
         t_jrk_not_used = timeValues[0];
         t_acc_not_used = timeValues[1];
@@ -739,6 +761,15 @@ std::vector<JerkTimePair> SegmentPlanning::calculate_jerk_sign_and_duration(
         timeValues = traj_segment_planning(
             p_start, p_end - minPos_to_zero - minPos_to_vf, abs_v_start,
             abs_v_start, v_max, a_max, j_max);
+        if (timeValues.size() < 5) {
+          strs.str("");
+          strs << __FUNCTION__ << ":" << __LINE__
+               << ": traj_segment_planning found no solution for the "
+                  "dominant-direction phase"
+               << std::endl;
+          LOG_ERROR(strs);
+          return emptyPairs;
+        }
         t_jrk_not_used = timeValues[0];
         t_acc_not_used = timeValues[1];
         t_jrk_dominant = timeValues[2];
@@ -815,6 +846,15 @@ std::vector<JerkTimePair> SegmentPlanning::calculate_jerk_sign_and_duration(
         timeValues = traj_segment_planning(
             p_start + minPos_to_zero + minPos_to_vf, p_end, abs_v_end,
             abs_v_end, v_max, a_max, j_max);
+        if (timeValues.size() < 5) {
+          strs.str("");
+          strs << __FUNCTION__ << ":" << __LINE__
+               << ": traj_segment_planning found no solution for the "
+                  "dominant-direction phase"
+               << std::endl;
+          LOG_ERROR(strs);
+          return emptyPairs;
+        }
         t_jrk_not_used = timeValues[0];
         t_acc_not_used = timeValues[1];
         t_jrk_dominant = timeValues[2];
@@ -915,6 +955,15 @@ std::vector<JerkTimePair> SegmentPlanning::calculate_jerk_sign_and_duration(
     LOG_DEBUG(strs);
     timeValues = traj_segment_planning(p_start, p_end, abs_v_start, abs_v_end,
                                        v_max, a_max, j_max);
+    if (timeValues.size() < 5) {
+      strs.str("");
+      strs << __FUNCTION__ << ":" << __LINE__
+           << ": traj_segment_planning found no solution for these boundary "
+              "conditions"
+           << std::endl;
+      LOG_ERROR(strs);
+      return emptyPairs;
+    }
     t_jrk_to_vf = timeValues[0];
     t_acc_to_vf = timeValues[1];
     t_jrk = timeValues[2];
@@ -1022,6 +1071,15 @@ std::vector<PiecewiseFunction> SegmentPlanning::fit_traj_segment(
   std::vector<JerkTimePair> jtPairs = calculate_jerk_sign_and_duration(
       p_start, p_end, v_start, v_end, p_max, v_max, a_max, j_max);
 
+  if (jtPairs.empty()) {
+    // calculate_jerk_sign_and_duration already logged why (infeasible
+    // boundary conditions, e.g. v_start/v_end both point opposite to
+    // p_end-p_start). Bail out here instead of building a PiecewiseFunction
+    // from empty jerk data -- that used to be undefined behavior (indexing
+    // functions_[0] on an empty vector inside PiecewiseFunction::evaluate).
+    return outputPieceWiseFunctions;  // empty
+  }
+
   strs.str("");
   strs << "segment_jerks_and_durations=";
   for (size_t i = 0; i < jtPairs.size(); i++) {
@@ -1084,6 +1142,16 @@ std::vector<double> SegmentPlanning::fit_traj_segment_samples(
   std::vector<double> bounds;
   std::vector<PiecewiseFunction> pfs = fit_traj_segment(
       p_start, p_end, v_start, v_end, p_max, v_max, a_max, j_max);
+
+  if (pfs.size() != 4) {
+    strs.str("");
+    strs << __FUNCTION__ << ":" << __LINE__
+         << ", fit_traj_segment returned no solution for these boundary "
+            "conditions"
+         << std::endl;
+    LOG_ERROR(strs);
+    return bounds;  // empty
+  }
 
   if (n_points < 2 || time_list.size() != n_points ||
       pos_list.size() != n_points || vel_list.size() != n_points ||

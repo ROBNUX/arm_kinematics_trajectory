@@ -95,13 +95,24 @@ PiecewiseFunction::PiecewiseFunction(const std::vector<double>& boundaries,
       dist_(0),
       lowest_bound_(0),
       largest_bound_(0),
+      sign_(1.0),
       initialized_(false) {
   std::ostringstream strs;
-  if (boundaries_.size() != functions_.size() + 1 && boundaries_.size() < 2) {
+  // functions_ empty (no pieces at all) or a boundary/piece count mismatch
+  // both mean this object can't be evaluated -- leave initialized_ false and
+  // don't touch bound-derived fields below, since evaluate() would otherwise
+  // index functions_[0] on an empty vector (undefined behavior / segfault).
+  // This is reachable in practice: callers construct a PiecewiseFunction
+  // from calculate_jerk_sign_and_duration's output, which returns an empty
+  // jerk/duration list for boundary conditions it can't plan (see
+  // fit_traj_segment).
+  if (functions_.empty() || boundaries_.size() != functions_.size() + 1) {
     strs << __FUNCTION__ << ":" << __LINE__
-         << ": boundary size=" << boundaries_.size()
-         << ", functions size=" << functions_.size() << std::endl;
+         << ": invalid piecewise function, not initialized: boundary size="
+         << boundaries_.size() << ", functions size=" << functions_.size()
+         << std::endl;
     LOG_ERROR(strs);
+    return;
   }
   lowest_bound_ = boundaries.front();
   largest_bound_ = boundaries.back();
@@ -113,6 +124,11 @@ PiecewiseFunction::PiecewiseFunction(const std::vector<double>& boundaries,
 }
 
 double PiecewiseFunction::evaluate(const double value) const {
+  if (functions_.empty()) {
+    // matches the "not initialized" guard in the constructor above; there is
+    // no polynomial data to evaluate.
+    return 0.0;
+  }
   int intv_index;
   // const double max_bound = boundaries_.back();
   // const double min_bound = bounaries_.front();

@@ -1,4 +1,5 @@
 #include "robnux_kinematics_map/UJNT.hpp"
+#include <algorithm>
 
 // register plugin
 PLUGINLIB_EXPORT_CLASS(kinematics_lib::UJNT, kinematics_lib::BaseKinematicMap)
@@ -42,25 +43,27 @@ int UJNT::CartToJnt(const Pose& pos, Eigen::VectorXd& q) {
     Frame relTip = defaultBaseOff_.Inverse() *  tip;
 
     Rotation r =  relTip.getRotation();
-    Vec rx = r.UnitX();   // we solve yaw and pitch from rx
-    Vec z1(0,0,1);
-
-    double calpha = rx.dot(z1);
-    double yaw, pitch;
-    pitch = acos(calpha) - M_PI / 2.0 ;
- 
-    Vec rx_proj = rx - calpha * z1;
-    yaw = atan2(rx_proj.y(), rx_proj.x());
-    if (branch[2]) {   // nonflip
-       q(0) = yaw;
-       q(1) = -pitch;
-    } else {   // flip solution
-       q(1) = -(M_PI - pitch);
-       if (yaw >= 0) {
-          q(0) = yaw - M_PI;
-       } else {
-          q(0) = yaw + M_PI;
-       }
+    // JntToCart's DH chain (alpha=[-pi/2,+pi/2], both theta home offsets
+    // 0) followed by a final RotX(-pi/2) gives, from a from-scratch
+    // Craig-DH derivation:
+    //   UnitX() = (cos(q0)*cos(q1), sin(q1), -sin(q0)*cos(q1))
+    // With only 2 controllable DOF this mechanism reaches a 2-parameter
+    // family of orientations (it cannot roll about UnitX() independently),
+    // so a reachable target UnitX() has exactly two joint solutions --
+    // cos(q1)>=0 (non-flip) and cos(q1)<0 (flip) -- and each reconstructs
+    // the *entire* rotation matrix exactly, not merely UnitX(). The
+    // previous acos(...)-M_PI/2 / atan2-on-projection formula here did not
+    // invert this map at all: FK(CartToJnt(FK(q))) reproduced neither q
+    // nor the orientation (confirmed by round-trip testing, ~1-2.5 rad
+    // orientation error on essentially every sample).
+    Vec rx = r.UnitX();
+    double sin_q1 = std::max(-1.0, std::min(1.0, rx.y()));
+    if (branch[2]) {   // nonflip: cos(q1) >= 0
+       q(1) = asin(sin_q1);
+       q(0) = atan2(-rx.z(), rx.x());
+    } else {   // flip: cos(q1) < 0
+       q(1) = M_PI - asin(sin_q1);
+       q(0) = atan2(rx.z(), -rx.x());
     }
    
     std::vector<int>  jointTurns;

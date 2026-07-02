@@ -664,31 +664,51 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
                                        const std::vector<int>& branch,
                                        Eigen::VectorXd& qo) const {
     constexpr int N_SAMPLES = 16;
-    int ki = lock_idx_;
     std::vector<Eigen::VectorXd> cands;
 
-    for (int si=0; si<N_SAMPLES; ++si) {
-        double q_lock = -M_PI + si * (2.0*M_PI / N_SAMPLES);
+    // Locking a joint whose axis the entire downstream chain rotates
+    // rigidly about as q_lock sweeps (e.g. a waist Z axis with nothing
+    // else sharing its frame) never changes the *relative* geometry
+    // (parallelism/concurrency) the topology detector looks at -- the
+    // sub-chain's topology is identical at every q_lock sample. So if
+    // lock_idx_ (chooseLockJoint()'s single best-ranked pick, which
+    // defaults to joint 0 when every candidate ties at "no good
+    // sub-topology" -- exactly what happens for a geometry deliberately
+    // built so no 6-joint subset is SRS/parallel/intersecting, e.g. this
+    // Panda-like arm) gives NoMatch once, the *entire* N_SAMPLES sweep is
+    // NoMatch and IK fails for every reachable pose, every time. Try the
+    // other lock joints before giving up -- unlike joint 0 here, they can
+    // have a genuinely q_lock-dependent sub-chain geometry.
+    std::vector<int> lock_candidates{lock_idx_};
+    for (int k = 0; k < static_cast<int>(DoF_); ++k) {
+        if (k != lock_idx_) lock_candidates.push_back(k);
+    }
 
-        serialArmPOE sub(6);
-        sub.SetGeometry(buildLockedSubChain(ki, q_lock));
-        if (sub.topology_ == ArmTopology::NoMatch || sub.topology_ == ArmTopology::Unknown)
-            continue;
+    for (int ki : lock_candidates) {
+        for (int si=0; si<N_SAMPLES; ++si) {
+            double q_lock = -M_PI + si * (2.0*M_PI / N_SAMPLES);
 
-        // Build a Pose from T_target (no branch flags — sub-arm picks best)
-        Frame fr = eigenToFrame(T);
-        Pose  tp(fr);
+            serialArmPOE sub(6);
+            sub.SetGeometry(buildLockedSubChain(ki, q_lock));
+            if (sub.topology_ == ArmTopology::NoMatch || sub.topology_ == ArmTopology::Unknown)
+                continue;
 
-        Eigen::VectorXd q6(6);
-        if (sub.CartToJnt(tp, q6) < 0) continue;
+            // Build a Pose from T_target (no branch flags — sub-arm picks best)
+            Frame fr = eigenToFrame(T);
+            Pose  tp(fr);
 
-        // Reconstruct 7D solution
-        Eigen::VectorXd q7(7);
-        for (int i=0; i<ki; ++i) q7(i)      = q6(i);
-        q7(ki) = q_lock;
-        for (int i=ki; i<6; ++i) q7(i+1)   = q6(i);
+            Eigen::VectorXd q6(6);
+            if (sub.CartToJnt(tp, q6) < 0) continue;
 
-        if (verifyCandidate(q7, T)) cands.push_back(q7);
+            // Reconstruct 7D solution
+            Eigen::VectorXd q7(7);
+            for (int i=0; i<ki; ++i) q7(i)      = q6(i);
+            q7(ki) = q_lock;
+            for (int i=ki; i<6; ++i) q7(i+1)   = q6(i);
+
+            if (verifyCandidate(q7, T)) cands.push_back(q7);
+        }
+        if (!cands.empty()) break;  // this lock joint produced workable solutions
     }
 
     if (cands.empty()) return -ERR_ROB_IK_OUTOF_REACH;
