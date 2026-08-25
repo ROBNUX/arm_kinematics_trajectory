@@ -24,19 +24,38 @@ bool Compute_Roots_Utility::QuadEqRealRoots(const double a, const double b,
   return true;
 }
 
+namespace {
+// A root of exactly (or numerically indistinguishable from) zero is a
+// legitimate, physically valid answer here -- e.g. calculate_const_acc_time
+// solving for a required constant-acceleration hold time can genuinely land
+// on ta=0 when the requested distance exactly equals the zero-hold jerk-only
+// distance. The strict "> 0" checks below used to reject that root (falling
+// through to the -1.0 "no solution" sentinel even though a valid answer
+// existed), so callers received a bogus negative duration instead. Treat
+// anything within epsilon of zero as the valid root 0.0.
+bool IsNonNegativeRoot(const double r) {
+  return r > -std::numeric_limits<double>::epsilon();
+}
+double ClampNonNegative(const double r) {
+  return r < 0.0 ? 0.0 : r;
+}
+}  // namespace
+
 double Compute_Roots_Utility::min_positive_root2(const double r1,
                                                  const double r2) {
   double min_rt = -1.0;
-  if (r1 > 0 && r2 > 0) {
+  bool ok1 = IsNonNegativeRoot(r1);
+  bool ok2 = IsNonNegativeRoot(r2);
+  if (ok1 && ok2) {
     if (r1 < r2) {
-      min_rt = r1;
+      min_rt = ClampNonNegative(r1);
     } else {
-      min_rt = r2;
+      min_rt = ClampNonNegative(r2);
     }
-  } else if (r1 > 0) {
-    min_rt = r1;
-  } else if (r2 > 0) {
-    min_rt = r2;
+  } else if (ok1) {
+    min_rt = ClampNonNegative(r1);
+  } else if (ok2) {
+    min_rt = ClampNonNegative(r2);
   }
   return min_rt;  // could return negative value if both r1 and r2 < 0
 }
@@ -45,24 +64,27 @@ double Compute_Roots_Utility::min_positive_root3(const double r1,
                                                  const double r2,
                                                  const double r3) {
   double min_rt = -1.0;
-  if (r1 > 0 && r2 > 0 && r3 > 0) {
+  bool ok1 = IsNonNegativeRoot(r1);
+  bool ok2 = IsNonNegativeRoot(r2);
+  bool ok3 = IsNonNegativeRoot(r3);
+  if (ok1 && ok2 && ok3) {
     if (r1 < r2) {
       min_rt = min_positive_root2(r1, r3);
     } else {
       min_rt = min_positive_root2(r2, r3);
     }
-  } else if (r1 > 0 && r2 > 0) {
+  } else if (ok1 && ok2) {
     min_rt = min_positive_root2(r1, r2);
-  } else if (r1 > 0 && r3 > 0) {
+  } else if (ok1 && ok3) {
     min_rt = min_positive_root2(r1, r3);
-  } else if (r2 > 0 && r3 > 0) {
+  } else if (ok2 && ok3) {
     min_rt = min_positive_root2(r2, r3);
-  } else if (r1 > 0) {
-    min_rt = r1;
-  } else if (r2 > 0) {
-    min_rt = r2;
-  } else if (r3 > 0) {
-    min_rt = r3;
+  } else if (ok1) {
+    min_rt = ClampNonNegative(r1);
+  } else if (ok2) {
+    min_rt = ClampNonNegative(r2);
+  } else if (ok3) {
+    min_rt = ClampNonNegative(r3);
   }
   return min_rt;
 }

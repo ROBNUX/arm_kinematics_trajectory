@@ -7,8 +7,16 @@ Usage (from a sourced ROS2 workspace):
     ros2 launch robnux_arm_sim scara_rviz.launch.py use_gui:=true
     ros2 launch robnux_arm_sim scara_rviz.launch.py use_sim:=true
     ros2 launch robnux_arm_sim scara_rviz.launch.py use_sim:=true plot:=true
+    ros2 launch robnux_arm_sim scara_rviz.launch.py use_sim:=true record:=true
+    ros2 launch robnux_arm_sim scara_rviz.launch.py use_sim:=true record:=true bag_path:=/tmp/my_run
+
+Replay a recorded bag (in another terminal, workspace sourced, this launch
+file NOT running use_sim so nothing else writes to /joint_states):
+    ros2 launch robnux_arm_sim scara_rviz.launch.py
+    ros2 bag play ~/sim_bags/scara_<timestamp>
 """
 
+import datetime
 import os
 import subprocess
 
@@ -18,6 +26,16 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import AndSubstitution, LaunchConfiguration, NotSubstitution, OrSubstitution
 from launch_ros.actions import Node
+
+# Recorded verbatim (position-only, as published): the raw ground truth.
+# /joint_states_full, /cart_twist, /cart_accel are derived by
+# trajectory_recorder.py (finite-differenced velocity/acceleration) and are
+# only non-empty while that node is running, which record:=true also starts.
+BAG_TOPICS = [
+    "/joint_states", "/joint_states_full",
+    "/cart_pose", "/cart_twist", "/cart_accel",
+    "/arm_path",
+]
 
 
 def get_robot_description(xacro_path: str) -> str:
@@ -37,6 +55,11 @@ def generate_launch_description() -> LaunchDescription:
     use_gui = LaunchConfiguration("use_gui", default="false")
     use_sim = LaunchConfiguration("use_sim", default="false")
     plot = LaunchConfiguration("plot", default="false")
+    record = LaunchConfiguration("record", default="false")
+    bag_path = LaunchConfiguration("bag_path")
+    default_bag_path = os.path.expanduser(
+        f"~/sim_bags/scara_{datetime.datetime.now():%Y%m%d_%H%M%S}"
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -53,6 +76,18 @@ def generate_launch_description() -> LaunchDescription:
             "plot",
             default_value="false",
             description="Launch rqt_plot for Cartesian position and orientation time-series plots",
+        ),
+        DeclareLaunchArgument(
+            "record",
+            default_value="false",
+            description="Start trajectory_recorder.py (derives joint/Cartesian "
+                        "velocity+acceleration) and ros2 bag record on the joint/Cartesian "
+                        "trajectory topics (pos, vel, acc), for later replay/debugging",
+        ),
+        DeclareLaunchArgument(
+            "bag_path",
+            default_value=default_bag_path,
+            description="Output directory for the rosbag (only used when record:=true)",
         ),
 
         Node(
@@ -88,6 +123,13 @@ def generate_launch_description() -> LaunchDescription:
             output="screen",
         ),
 
+        # Run the matching simulation script when use_sim:=true
+        ExecuteProcess(
+            cmd=["ros2", "run", "robnux_arm_sim", "simulate_scara.py"],
+            output="screen",
+            condition=IfCondition(use_sim),
+        ),
+
         # PlotJuggler for rolling time-series: position (x/y/z) and orientation (roll/pitch/yaw)
         # Subscribe to /cart_pose and /arm_rpy after it opens.
         # Fallback: rqt_plot (set Timespan in toolbar for rolling window).
@@ -95,5 +137,23 @@ def generate_launch_description() -> LaunchDescription:
             cmd=["ros2", "run", "plotjuggler", "plotjuggler"],
             output="screen",
             condition=IfCondition(plot),
+        ),
+
+        # Derives joint/Cartesian velocity+acceleration by differencing the
+        # position-only /joint_states and /cart_pose topics (see
+        # trajectory_recorder.py's module docstring for why differencing
+        # rather than exposing the trajectory engine's internal state).
+        Node(
+            package="robnux_arm_sim",
+            executable="trajectory_recorder.py",
+            name="trajectory_recorder",
+            output="screen",
+            condition=IfCondition(record),
+        ),
+
+        ExecuteProcess(
+            cmd=["ros2", "bag", "record", "-o", bag_path, "--topics"] + BAG_TOPICS,
+            output="screen",
+            condition=IfCondition(record),
         ),
     ])

@@ -48,7 +48,14 @@ static const unsigned int MAX_TOOL_FRAMES = 8;
 // is too small
 static const double MIN_JNT_DIST = 1e-2;  // 0.01 degree
 // maximal matching error (assumed model and actual measurements) calibration
-static const double MAX_CALIB_MATCHING_ERR = 1e-12;  // 1e-12; //1e-11; //1e-8;
+// NOTE: was 1e-12 (picometer-scale iteration-to-iteration improvement) --
+// unreachable for any real position measurement, so calibration loops using
+// this as a "stopped improving" threshold never triggered it and instead
+// always ran to MAX_CALIB_OUTER_ITER (confirmed via robLog.log: 37/37
+// DirectMesCalib/LaserDistanceCalib runs hit the iteration cap rather than
+// converging). 1e-9 m keeps a comfortably tight margin below the
+// micron-scale MAX_CALIB_STOP_ERR target while actually being reachable.
+static const double MAX_CALIB_MATCHING_ERR = 1e-9;  // 1e-12; //1e-11; //1e-8;
 // constant to determine there exists backlash
 static const double MAX_CALIB_BACKLASH_ERR = 1e-8;  // 0.1mm * 0.1mm
 static const double MIN_QUAT_SING_VALUE =
@@ -56,12 +63,28 @@ static const double MIN_QUAT_SING_VALUE =
 static const double MAX_CALIB_MATCHING_ERR_COPLANAR =
     1e-21;  // 1e-16; // 1e-12; //1e-11; //1e-8;
 static const double MAX_ORIENT_CALIB_MATCHING_ERR = 1e-7;
-static const double MAX_CALIB_STOP_ERR = 1e-9;            // 1e-8;
+// NOTE: was 1e-9 m (1 nanometer) -- no real position measurement system
+// (CMM, laser tracker, robot repeatability) gets anywhere near that, so this
+// was unreachable in practice; DirectMesCalib/LaserDistanceCalib always ran
+// to MAX_CALIB_OUTER_ITER rather than detecting genuine convergence (see
+// MAX_CALIB_MATCHING_ERR's note above). 1e-6 m (1 micron) is still an
+// ambitious but physically reachable calibration target.
+static const double MAX_CALIB_STOP_ERR = 1e-6;            // 1e-8;
 static const double MAX_CALIB_STOP_ERR_COPLANAR = 1e-20;  // 1e-15;
 // maximal iteration used in calibration iterative optimization
 static const int MAX_CALIB_ITER = 2000;
 static const int MAX_CALIB_INTER_ITER = 2000;
 static const int MAX_CALIB_OUTER_ITER = 2000;  // 1000;
+// SAM-type gradient descent's probe step deliberately moves to a nearby
+// *worse* point by design (that's what "sharpness-aware" probing means), so
+// a single probe+actual pair's error-improvement comparison is an inherently
+// noisy signal, not a clean convergence test -- with MAX_CALIB_MATCHING_ERR
+// tightened to something reachable (see its own note above), a single
+// unlucky/noisy pair can otherwise trip the "stopped improving" exit after
+// only 1-2 pairs, discarding hundreds of iterations of remaining calibration
+// budget. Require this many *consecutive* non-improving pairs before
+// actually giving up.
+static const int MAX_CALIB_STALL_PAIRS = 5;
 // calibration matrix singular
 static const double CALIB_SINGULAR_CONST = 1e-16;
 // comp matrix singular const

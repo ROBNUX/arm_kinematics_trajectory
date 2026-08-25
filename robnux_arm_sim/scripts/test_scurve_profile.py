@@ -41,6 +41,7 @@ Run (ROS2 + /opt/robnux overlay sourced):
 """
 import argparse
 import json
+import math
 import subprocess
 import sys
 
@@ -60,6 +61,67 @@ FD_REL_TOL = 0.02            # finite-difference cross-check tolerance
 
 def finite_diff(y, t):
     return np.gradient(y, t)
+
+
+def _phase(jerk, dur, a0, v0, p0):
+    a1 = jerk * dur + a0
+    v1 = jerk * dur * dur / 2.0 + a0 * dur + v0
+    p1 = jerk * dur ** 3 / 6.0 + a0 * dur * dur / 2.0 + v0 * dur + p0
+    return a1, v1, p1
+
+
+def _min_pos_to_reach_final_vel(v0, vf, am, jm):
+    """Mirrors calculate_min_pos_reached_acc_jrk_time_acc_time_to_reach_final_vel:
+    minimum |distance| needed to go from v0 to vf under the given accel/jerk
+    limits (jerk-only triangle, or jerk+const-accel-hold trapezoid if the
+    jerk-only triangle would exceed am)."""
+    diff_v = abs(vf - v0)
+    if diff_v < 1e-15:
+        return 0.0
+    jm_signed = jm if vf > v0 else -jm
+    ar = math.sqrt(jm * diff_v)
+    t = ar / jm
+    a, v, p = _phase(jm_signed, t, 0.0, v0, 0.0)
+    if abs(a) <= abs(am):
+        _, _, p3 = _phase(-jm_signed, t, a, v, p)
+        return abs(p3)
+    t = abs(am / jm_signed)
+    ta = (diff_v - abs(am * am / jm_signed)) / am
+    a, v, p = _phase(jm_signed, t, 0.0, v0, 0.0)
+    a, v, p = _phase(0.0, ta, a, v, p)
+    _, _, p3 = _phase(-jm_signed, t, a, v, p)
+    return abs(p3)
+
+
+def infeasibility_reason(params):
+    """Returns a human-readable reason if this boundary condition is
+    provably infeasible for a single-reversal (or no-reversal) S-curve --
+    i.e. FitScurveSegment correctly has no solution to return -- or None if
+    the case looks solvable and an empty result would indicate a real bug.
+
+    Two known, deliberate scope limits of this planner (see
+    SegmentPlanning::calculate_jerk_sign_and_duration /
+    traj_segment_planning in scurve_lib):
+      1) v_start and v_end share a sign but point away from the required
+         net displacement -- reaching p_end would require two velocity-sign
+         reversals ("double complex motion"), which this single/one-reversal
+         planner doesn't support.
+      2) The distance available (|p_end-p_start|) is physically too short to
+         complete the requested v_start->v_end change under the given
+         accel/jerk limits, independent of direction.
+    """
+    vs, ve = params["v_start"], params["v_end"]
+    ps, pe = params["p_start"], params["p_end"]
+    if vs > 0 and ve > 0 and pe - ps < 0:
+        return "v_start/v_end both positive but p_end < p_start (needs a double reversal)"
+    if vs < 0 and ve < 0 and pe - ps > 0:
+        return "v_start/v_end both negative but p_end > p_start (needs a double reversal)"
+    min_pos = _min_pos_to_reach_final_vel(vs, ve, params["a_max"], params["j_max"])
+    if min_pos > abs(pe - ps):
+        return (f"min distance to go v_start={vs:.4g}->v_end={ve:.4g} under "
+                f"a_max={params['a_max']:.4g}/j_max={params['j_max']:.4g} is "
+                f"{min_pos:.4g}, exceeding available |p_end-p_start|={abs(pe-ps):.4g}")
+    return None
 
 
 def case_params(seed: int, case_index: int):
@@ -92,7 +154,14 @@ def run_case(m, params):
 
     problems = []
     if len(bounds) == 0:
-        problems.append("FitScurveSegment returned empty bounds (internal failure)")
+        reason = infeasibility_reason(params)
+        if reason is not None:
+            # Correct rejection of a boundary condition this planner is not
+            # scoped to solve -- not a bug. Tagged so the report can count
+            # it separately from a genuine internal failure.
+            problems.append(f"SKIP: infeasible input ({reason})")
+        else:
+            problems.append("FitScurveSegment returned empty bounds (internal failure)")
         return problems
 
     if not np.all(np.diff(t) > 0):
@@ -119,7 +188,24 @@ def run_case(m, params):
     a_fd = finite_diff(v, t)
     scale_v = max(max_v, 1e-6)
     scale_a = max(max_a, 1e-6)
-    core = slice(2, -2)
+    # Acceleration is continuous but not differentiable at a jerk-switch
+    # corner (bounds[k]), and velocity likewise at an acceleration corner
+    # under np.gradient's central difference -- a sample landing within a
+    # couple of grid steps of one of those corners has O(1/N) finite-
+    # difference error by construction, not a sign of a wrong profile (see
+    # module docstring). Exclude points close to any known corner, in
+    # addition to the existing whole-array edge exclusion.
+    dt_grid = t[1] - t[0] if len(t) > 1 else 0.0
+    corner_gap = 3 * dt_grid
+    near_corner = np.zeros(len(t), dtype=bool)
+    for b in bounds:
+        near_corner |= np.abs(t - b) < corner_gap
+    core = np.ones(len(t), dtype=bool)
+    core[:2] = False
+    core[-2:] = False
+    core &= ~near_corner
+    if not np.any(core):
+        return problems
     dv = np.max(np.abs(v_fd[core] - v[core])) / scale_v
     da = np.max(np.abs(a_fd[core] - a[core])) / scale_a
     if dv > FD_REL_TOL:
@@ -202,31 +288,41 @@ def main() -> int:
                      help="re-run a single case index in-process (for debugging a failure)")
     args = ap.parse_args()
 
+    def is_skip(problems):
+        return bool(problems) and all(pr.startswith("SKIP:") for pr in problems)
+
     if args.case is not None:
         import rob_motion_commands as m
         params = case_params(args.seed, args.case)
         print(f"case {args.case}: {params}")
         problems = run_case(m, params)
-        print("PASS" if not problems else f"FAIL: {problems}")
-        return 1 if problems else 0
+        if not problems:
+            print("PASS")
+        elif is_skip(problems):
+            print(f"SKIP: {problems}")
+        else:
+            print(f"FAIL: {problems}")
+        return 1 if problems and not is_skip(problems) else 0
 
     print("=" * 78)
     print(f"S-curve profile test — {args.n} random segments, seed={args.seed}")
     print("=" * 78)
     all_problems = run_parent(args.n, args.seed)
     n_fail = 0
+    n_skip = 0
     for i, problems in enumerate(all_problems):
-        if problems:
+        if problems and is_skip(problems):
+            n_skip += 1
+        elif problems:
             n_fail += 1
             print(f"[FAIL] case {i}: {case_params(args.seed, i)}")
             for pr in problems:
                 print(f"         {pr}")
 
     print("=" * 78)
-    if n_fail:
-        print(f"RESULT: {n_fail}/{args.n} random segment(s) FAILED")
-    else:
-        print(f"RESULT: all {args.n} random segment(s) PASSED")
+    n_pass = args.n - n_fail - n_skip
+    print(f"RESULT: {n_pass} passed, {n_skip} skipped (provably infeasible input), "
+          f"{n_fail} FAILED, out of {args.n}")
     return 1 if n_fail else 0
 
 
