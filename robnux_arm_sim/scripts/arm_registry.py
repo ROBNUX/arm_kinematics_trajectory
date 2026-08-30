@@ -110,10 +110,20 @@ def _quattro_spec() -> ArmSpec:
 
 
 def _quattro4_spec() -> ArmSpec:
+    # Quattro_4::SetGeometry (quattro_4.cpp) reads 11 values:
+    # R1,alpha,b1,c1,d1,h,m, v1x,v1y, v2x,v2y -- moving-platform attachment
+    # offsets for leg pairs (0,3) and (1,2) respectively. This used to be
+    # missing the trailing v2y, leaving the array 1 short of the required
+    # 11; SetGeometry silently no-ops (never sets initialized_=True) when
+    # given too few values, so every FK/IK call failed with "not
+    # initialized". v2y=0.0 completes the (v1x,v1y)=(0,0.12),
+    # (v2x,v2y)=(0.12,0.0) pair as a platform with attachment points at
+    # radius 0.12, 90 degrees apart -- matching the given v1x=0/v2x=0.12
+    # symmetry (adjust if the real platform geometry differs).
     para = np.array([[
-        0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1,
-        0.0, 0.0,
-        0.12, 0.12,
+        0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1, 0.0,
+        0.0, 0.12,
+        0.12, 0.0,
     ]]).T
     return ArmSpec(
         name="quattro_4", robname="quattro_4", dof=4, para=para,
@@ -233,6 +243,27 @@ def _poe_ur5_spec() -> ArmSpec:
     return _poe6_spec("poe_ur5", axes, tl_pos, tool_offset, bounds)
 
 
+def _poe_ur10_spec() -> ArmSpec:
+    # Same axes/tl_pos layout as poe_ur5 (shoulder_height, shoulder_offset,
+    # upper_arm, forearm, wrist1, wrist2, tool=wrist3), substituting UR10's
+    # published link lengths: d1=0.1273, shoulder_offset=0.220941,
+    # a2=0.612, a3=0.5723, d4=0.163941, d5=0.1157, d6=0.0922.
+    # NOTE: as with poe_ur5, this reproduces the standard per-joint offset
+    # magnitudes but not the real robot's exact folded reach -- simulated
+    # max reach comes out larger than UR10's published 1300mm working
+    # radius (same simplification already present in poe_ur5 vs UR5's
+    # 850mm spec), so treat both as UR-family test geometries rather than
+    # millimeter-accurate replicas.
+    axes = [[0, 0, 1], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 0, -1], [0, 1, 0]]
+    tl_pos = [
+        [0, 0, 0.1273], [0, 0.2209, 0], [0.6120, 0, 0],
+        [0.5723, 0, 0], [0, 0.1639, 0], [0, 0, 0.1157],
+    ]
+    tool_offset = [0, 0, 0.0922]
+    bounds = [(-3.0, 3.0)] * 6
+    return _poe6_spec("poe_ur10", axes, tl_pos, tool_offset, bounds)
+
+
 def _poe_kuka_spec() -> ArmSpec:
     axes = [[0, 0, 1], [0, 1, 0], [0, 1, 0], [0, 0, 1], [0, 1, 0], [0, 0, 1]]
     tl_pos = [
@@ -300,6 +331,7 @@ def build_all_specs() -> List[ArmSpec]:
         _scara6020_spec(),
         _rv2fr_spec(),
         _poe_ur5_spec(),
+        _poe_ur10_spec(),
         _poe_kuka_spec(),
         _poe_lite6_spec(),
         _poe_iiwa_spec(),

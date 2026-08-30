@@ -42,14 +42,26 @@ BASE_OFF = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
 DOF       = 6
 HOME_JNT  = np.zeros(DOF)
 # GATE_JNT: initial display pose.
-# q[1]=+90°: upper arm extends in -X from shoulder (horizontal, at shoulder height z=0.33).
-# q[2]=+90°: forearm bends straight UP from the elbow, giving a classic L/gate shape.
+# q[1]=-90°: upper arm extends in +X from shoulder (horizontal, at shoulder height z=0.33),
+#   keeping the arm in front of the base instead of behind it.
+# q[2]=+90°: forearm bends straight down from the elbow, giving a classic L/gate shape.
 # q[4]=30°: wrist clear of singularity.
-GATE_JNT  = np.array([0.0, math.radians(90), math.radians(90), 0.0, math.radians(30), 0.0])
-# BOX_JNT: near HOME but q[4]=30° keeps wrist away from the J5=0 singularity so the
-# Jacobian-based velocity IK doesn't fail during LIN execution.  EE lands at the same
-# XYZ region as HOME (~23 cm from Z-axis), well clear of the 5 cm headDist threshold.
-BOX_JNT   = np.array([0.0, 0.0, 0.0, 0.0, math.radians(30), 0.0])
+GATE_JNT  = np.array([0.0, math.radians(-40), math.radians(115), 0.0, math.radians(30), 0.0])
+# BOX_JNT: q[1]=-90° swings the shoulder forward so the box path sits in +X in
+# front of the base (same convention as GATE_JNT) instead of HOME's native -X
+# reach (HOME's own FK is x=-0.265 -- see sixaxis_robot.urdf.xacro's header
+# comment). q[4]=30° keeps the wrist away from the J5=0 singularity so the
+# Jacobian-based velocity IK doesn't fail during LIN execution.
+#
+# IMPORTANT: box_loc's radial distance from the Z-axis, hypot(x, y), must
+# stay above SIXDOF_HEADDIST (5cm, see sixaxis_1.cpp) for every corner in
+# the +-dx/+-dz box below, or CartToJnt returns "infinite IK solutions" and
+# the LIN execution hangs (this is what happened with q[1]=-40, q[2]=20:
+# box_loc.x=-0.0776, and box_loc.x+dx=+0.0024 -- 2.4mm from the axis).
+# q[1]=-90, q[2]=20 lands at x=+0.199, headDist=0.119 with dx=0.08 -- more
+# than double the threshold. If you change q[1]/q[2]/dx again, recheck:
+# hypot(box_loc.x +/- dx, box_loc.y) > 0.05 for every corner.
+BOX_JNT   = np.array([0.0, math.radians(-80), math.radians(20.0), 0.0, math.radians(30), 0.0])
 # READY_JNT: visually interesting shoulder/elbow pose used as start/end visual.
 # q[1]=-45°: shoulder pitched forward; q[2]=80°: visible elbow bend; q[4]=30°: wrist clear.
 READY_JNT = np.array([0.0, math.radians(-45), math.radians(80), 0.0, math.radians(30), 0.0])

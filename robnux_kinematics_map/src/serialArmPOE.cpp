@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <sstream>
 
@@ -347,6 +348,18 @@ static Cand pickBest(std::vector<Cand>& cv, const std::vector<int>& br) {
 }
 // Wrap angle to (-pi, pi]
 static double wrapPi(double a) { return std::fmod(a+M_PI,2*M_PI)-M_PI; }
+// Joint-space distance that treats each joint as periodic (mod 2*pi) --
+// atan2-derived angles wrap at +-pi, so a joint that physically moved by a
+// tiny amount across that boundary (e.g. +3.14 -> -3.13) has a *raw*
+// difference of nearly 2*pi. Using the raw norm as a continuity metric
+// makes that joint look like it jumped almost all the way around, which
+// corrupts both the discrete tie-break and the continuous refinement's
+// search direction right at the wrap.
+static double wrappedDist(const Eigen::VectorXd& a, const Eigen::VectorXd& b) {
+    double s = 0.0;
+    for (int i=0; i<a.size(); ++i) { double d = wrapPi(a(i)-b(i)); s += d*d; }
+    return std::sqrt(s);
+}
 // Check if two 7-angle solutions are within tol of each other
 static bool nearDup(const Eigen::VectorXd& a, const Eigen::VectorXd& b, double tol=1e-3) {
     for (int i=0; i<a.size(); ++i)
@@ -529,76 +542,187 @@ int serialArmPOE::cartToJntSRS(const Eigen::Matrix4d& T,
     double base_q3 = M_PI - std::acos(cos_int);
 
     constexpr int N_SWIVEL = 16;
-    std::vector<Eigen::VectorXd> cands;
 
-    for (double q3_signed : {base_q3, -base_q3}) {
-        for (int swivel_i = 0; swivel_i < N_SWIVEL; ++swivel_i) {
-            double theta = -M_PI + swivel_i * (2.0*M_PI / N_SWIVEL);
-            Eigen::Vector3d E_t = d.shoulder_pivot
-                + x_c*u_sw + r_circle*(std::cos(theta)*u1 + std::sin(theta)*u2);
-            Eigen::Vector3d dvec = (E_t - d.shoulder_pivot) / d.L_se;
-            double cos_q1 = std::max(-1.0, std::min(1.0, dvec.z()));
+    // Closed-form map from a continuous swivel angle theta (plus the
+    // discrete elbow/shoulder/wrist branch signs) to the full 7-vector
+    // joint solution. Reused both for the initial N_SWIVEL-point discrete
+    // search below (to locate the right branch/region) and for a local
+    // continuous refinement of theta around the previous tick's solution --
+    // the discrete grid alone can only track the arm's continuous
+    // self-motion to within one grid step (2*pi/N_SWIVEL), which shows up
+    // as an abrupt joint-space jump whenever the true continuous optimum
+    // crosses a grid boundary between ticks of a smoothly moving Cartesian
+    // target.
+    auto qFromTheta = [&](double theta, double q3_signed, int q1_sign,
+                           int q5_sign) -> Eigen::VectorXd {
+        Eigen::Vector3d E_t = d.shoulder_pivot
+            + x_c*u_sw + r_circle*(std::cos(theta)*u1 + std::sin(theta)*u2);
+        Eigen::Vector3d dvec = (E_t - d.shoulder_pivot) / d.L_se;
+        double cos_q1 = std::max(-1.0, std::min(1.0, dvec.z()));
 
-            for (int q1_sign : {+1, -1}) {
-                double q1     = q1_sign * std::acos(cos_q1);
-                double sin_q1 = std::sin(q1);
-                double q0     = (std::abs(sin_q1) > 1e-9)
-                    ? std::atan2(dvec.y()/sin_q1, dvec.x()/sin_q1) : 0.0;
+        double q1     = q1_sign * std::acos(cos_q1);
+        double sin_q1 = std::sin(q1);
+        double q0     = (std::abs(sin_q1) > 1e-9)
+            ? std::atan2(dvec.y()/sin_q1, dvec.x()/sin_q1) : 0.0;
 
-                // Frame at joint 5 with q2=0 → wrist position at q2=0
-                Eigen::VectorXd qp = Eigen::VectorXd::Zero(7);
-                qp(0)=q0; qp(1)=q1; qp(3)=q3_signed;
-                auto [R5, W0] = frameAtJoint(qp, 5);
+        // Frame at joint 5 with q2=0 → wrist position at q2=0
+        Eigen::VectorXd qp = Eigen::VectorXd::Zero(7);
+        qp(0)=q0; qp(1)=q1; qp(3)=q3_signed;
+        auto [R5, W0] = frameAtJoint(qp, 5);
 
-                // SP1: q2 rotates W0 to W_t around upper-arm axis
-                double q2 = poe_sp::sp1(dvec, W0-E_t, W_t-E_t).theta;
+        // SP1: q2 rotates W0 to W_t around upper-arm axis
+        double q2 = poe_sp::sp1(dvec, W0-E_t, W_t-E_t).theta;
 
-                // Frame before joint 4 (wrist) with full (q0,q1,q2,q3)
-                Eigen::VectorXd qf = qp;
-                qf(2) = q2;
-                auto [R_pre, p_pre] = frameAtJoint(qf, 4);
+        // Frame before joint 4 (wrist) with full (q0,q1,q2,q3)
+        Eigen::VectorXd qf = qp;
+        qf(2) = q2;
+        auto [R_pre, p_pre] = frameAtJoint(qf, 4);
 
-                // ZYZ Euler decomposition of residual rotation
-                Eigen::Matrix3d Rres = R_pre.transpose() * R_target * d.R_post_wrist.transpose();
-                double cos_q5 = std::max(-1.0, std::min(1.0, Rres(2,2)));
+        // ZYZ Euler decomposition of residual rotation
+        Eigen::Matrix3d Rres = R_pre.transpose() * R_target * d.R_post_wrist.transpose();
+        double cos_q5 = std::max(-1.0, std::min(1.0, Rres(2,2)));
 
-                for (int q5_sign : {+1, -1}) {
-                    double q5    = q5_sign * std::acos(cos_q5);
-                    double sinq5 = std::sin(q5);
-                    double q4, q6;
-                    if (std::abs(sinq5) > 1e-9) {
-                        q4 = std::atan2(q5_sign*Rres(1,2),  q5_sign*Rres(0,2));
-                        q6 = std::atan2(q5_sign*Rres(2,1), -q5_sign*Rres(2,0));
-                    } else {
-                        q4 = 0.0;
-                        q6 = (cos_q5 > 0)
-                            ? std::atan2(-Rres(0,1), Rres(0,0))
-                            : std::atan2( Rres(0,1),-Rres(0,0));
-                    }
+        double q5    = q5_sign * std::acos(cos_q5);
+        double sinq5 = std::sin(q5);
+        double q4, q6;
+        if (std::abs(sinq5) > 1e-9) {
+            q4 = std::atan2(q5_sign*Rres(1,2),  q5_sign*Rres(0,2));
+            q6 = std::atan2(q5_sign*Rres(2,1), -q5_sign*Rres(2,0));
+        } else {
+            q4 = 0.0;
+            q6 = (cos_q5 > 0)
+                ? std::atan2(-Rres(0,1), Rres(0,0))
+                : std::atan2( Rres(0,1),-Rres(0,0));
+        }
 
-                    Eigen::VectorXd qc(7);
-                    qc << q0, q1, q2, q3_signed, q4, q5, q6;
-                    if (!qc.allFinite()) continue;
-                    if (verifyCandidate(qc, T)) cands.push_back(qc);
-                }
+        Eigen::VectorXd qc(7);
+        qc << q0, q1, q2, q3_signed, q4, q5, q6;
+        return qc;
+    };
+
+    struct SrsCand { Eigen::VectorXd q; double theta, q3s; int q1s, q5s; };
+    std::vector<SrsCand> cands;
+
+    // Only one sign of q3 is generated. The other, q3=-base_q3, is not a
+    // second physical elbow configuration -- for every theta it reproduces
+    // the *identical* arm pose via the substitution q2->q2+pi, q3->-q3,
+    // q4->q4+pi (q0,q1,q5,q6 unchanged), the same kind of roll+pi/flip
+    // double cover already relating q1_sign to q0. Generating it too would
+    // just duplicate every candidate under a relabeled (q2,q3,q4), doubling
+    // the search for no new reachability and letting the branch-lock below
+    // mistake a relabeling for an actual configuration change.
+    for (int swivel_i = 0; swivel_i < N_SWIVEL; ++swivel_i) {
+        double theta = -M_PI + swivel_i * (2.0*M_PI / N_SWIVEL);
+        for (int q1_sign : {+1, -1}) {
+            for (int q5_sign : {+1, -1}) {
+                Eigen::VectorXd qc = qFromTheta(theta, base_q3, q1_sign, q5_sign);
+                if (!qc.allFinite()) continue;
+                if (verifyCandidate(qc, T))
+                    cands.push_back({qc, theta, base_q3, q1_sign, q5_sign});
             }
         }
     }
 
     if (cands.empty()) return -ERR_ROB_IK_OUTOF_REACH;
-    dedup(cands);
-
-    // Select by branch flag or best FK
-    auto fk = [this](const Eigen::VectorXd& q){return poeFk(q);};
-    Eigen::VectorXd best = cands.front();
-    double best_res = fkRes(best, T, fk);
-    for (auto& qc : cands) {
-        double r = fkRes(qc, T, fk);
-        if (r < best_res) { best_res = r; best = qc; }
+    {   // dedup near-identical joint-space solutions, keeping the first
+        std::vector<SrsCand> u;
+        for (auto& c : cands) {
+            bool dup=false;
+            for (auto& r : u) if (nearDup(c.q, r.q)) { dup=true; break; }
+            if (!dup) u.push_back(c);
+        }
+        cands = std::move(u);
     }
 
+    // First pass: find the best achievable residual across all candidates.
+    auto fk = [this](const Eigen::VectorXd& q){return poeFk(q);};
+    double best_res = std::numeric_limits<double>::max();
+    for (auto& c : cands) {
+        double r = fkRes(c.q, T, fk);
+        if (r < best_res) best_res = r;
+    }
     if (best_res > 1e-4) return -ERR_ROB_IK_OUTOF_REACH;
-    qo = best; return 0;
+
+    // Second pass: among candidates that reach the target essentially as
+    // well as the best one (this topology's redundancy means several
+    // distinct joint-space solutions routinely do), pick whichever is
+    // closest in joint space to the last solution returned -- keeping the
+    // arm's actual, continuous self-motion instead of jumping between
+    // discrete N_SWIVEL samples. Falls back to the lowest-residual
+    // candidate when there's no previous solution to stay close to (e.g.
+    // the very first IK call).
+    //
+    // Per swivel angle there are up to 4 *physically distinct* branches
+    // tied in residual (elbow-left/right via q1_sign, wrist-flip/non-flip
+    // via q5_sign) -- not just parametrization noise. An unrestricted
+    // joint-space nearest-neighbor search across all of them can
+    // occasionally jump to a different branch when it happens to look
+    // close on one joint, producing large (multi-radian) single-tick
+    // jumps. So first try to stay on the previous tick's branch, and only
+    // fall back to a full cross-branch search if that branch has no tied
+    // candidate this tick (e.g. it became infeasible) or there's no
+    // previous branch yet (first call).
+    constexpr double kResTol = 1e-6;
+    const bool have_seed = (srs_last_q_.size() == static_cast<int>(DoF_)) && srs_have_branch_;
+    bool branch_available = false;
+    if (have_seed) {
+        for (auto& c : cands) {
+            if (c.q1s == srs_last_q1_sign_ && c.q5s == srs_last_q5_sign_ &&
+                fkRes(c.q, T, fk) <= best_res + kResTol) { branch_available = true; break; }
+        }
+    }
+    SrsCand best = cands.front();
+    double best_score = std::numeric_limits<double>::max();
+    for (auto& c : cands) {
+        double r = fkRes(c.q, T, fk);
+        if (r > best_res + kResTol) continue;
+        if (branch_available &&
+            !(c.q1s == srs_last_q1_sign_ && c.q5s == srs_last_q5_sign_)) continue;
+        double score = have_seed ? wrappedDist(c.q, srs_last_q_) : r;
+        if (score < best_score) { best_score = score; best = c; }
+    }
+
+    // Local continuous refinement: the discrete grid above only locates
+    // *which* swivel branch (q3/q1/q5 signs) and which grid cell is
+    // closest to the previous solution -- it can't represent the
+    // continuously-varying true optimum in between grid points. Ternary-
+    // search theta in a one-grid-step window around the winning cell
+    // (dist-to-previous-solution is unimodal there) to track the arm's
+    // self-motion continuously instead of snapping between N_SWIVEL
+    // discrete positions. This is what removes the occasional large joint
+    // jump (up to one full grid step, ~0.28 rad measured for N_SWIVEL=16)
+    // that otherwise shows up as visible shaking when a smoothly moving
+    // Cartesian target's true optimum crosses a grid boundary between ticks.
+    // The distance metric wraps each joint mod 2*pi (wrappedDist) so a
+    // joint crossing the atan2 +-pi seam doesn't look like a near-2*pi
+    // jump to the search.
+    if (have_seed) {
+        double lo = best.theta - (2.0*M_PI / N_SWIVEL);
+        double hi = best.theta + (2.0*M_PI / N_SWIVEL);
+        auto dist = [&](double th) {
+            Eigen::VectorXd qc = qFromTheta(th, best.q3s, best.q1s, best.q5s);
+            if (!qc.allFinite()) return std::numeric_limits<double>::max();
+            return wrappedDist(qc, srs_last_q_);
+        };
+        for (int iter = 0; iter < 40; ++iter) {
+            double m1 = lo + (hi-lo)/3.0;
+            double m2 = hi - (hi-lo)/3.0;
+            if (dist(m1) < dist(m2)) hi = m2; else lo = m1;
+        }
+        double theta_ref = 0.5*(lo+hi);
+        Eigen::VectorXd q_ref = qFromTheta(theta_ref, best.q3s, best.q1s, best.q5s);
+        if (q_ref.allFinite() && fkRes(q_ref, T, fk) <= best_res + kResTol &&
+            wrappedDist(q_ref, srs_last_q_) < best_score) {
+            best.q = q_ref;
+        }
+    }
+
+    qo = best.q;
+    srs_last_q_ = best.q;
+    srs_last_q1_sign_ = best.q1s;
+    srs_last_q5_sign_ = best.q5s;
+    srs_have_branch_ = true;
+    return 0;
 }
 
 // ===========================================================================
@@ -773,7 +897,18 @@ int serialArmPOE::JntToCart(const Eigen::VectorXd& q, Pose& p) {
             }
         }
     }
-    p.setBranchFlags({best_oi, best_ii});
+    // Pad to 3 elements (a trailing, unused 0) to match the legacy
+    // int<->vector branch encoding used throughout the rest of the
+    // pipeline: SingleInt2RobnuxBranch (pose.cpp) always resizes to 3
+    // (the old DH left/right,up/down,flip/nonflip convention), so a
+    // Cartesian target built in Python from this pose's branch int (e.g.
+    // LocData(..., cfg=pose.G, ...)) always decodes back to 3 elements.
+    // Left at 2, TrajectorySegment::setBoundCond's config-match check
+    // (CompareRobotConfigTurn, which rejects on size alone) would reject
+    // every such target as "config not matching", aborting the segment.
+    // pickBest() only ever reads br[0]/br[1], so appending -- not
+    // prepending -- leaves that lookup unaffected.
+    p.setBranchFlags({best_oi, best_ii, 0});
     return 0;
 }
 

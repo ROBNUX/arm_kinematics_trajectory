@@ -248,21 +248,35 @@ int serialArm::CartToJnt(const Pose& p, const Twist& v,
     // to obtain twist
     Eigen::MatrixXd M;
     Eigen::VectorXd b;
-    Eigen::MatrixXd Js_t, Js_r;   
+    Eigen::MatrixXd Js_t, Js_r;
     PickSubJacobian(Jp_t, Jp_r, Js_t, Js_r, true);
 
     size_t rowTrans = Js_t.rows();
     size_t  rowRot = Js_r.rows();
-    M.resize(rowTrans + rowRot, rowTrans+rowRot);
+    // M's column count must match Js_t/Js_r's column count (= number of
+    // joint DOF PickSubJacobian left in place), NOT the task-space row
+    // count. Those are only equal for a non-redundant arm whose full task
+    // space is used (e.g. a standard 6-DOF arm with a 6x6 Jacobian); for a
+    // redundant arm (e.g. 7 joints resolving a 6D pose) M is rectangular
+    // (6x7 here), and forcing it square used to silently truncate the last
+    // joint's Jacobian column and then mis-size qdot to 6 elements instead
+    // of 7 -- corrupting the last joint's commanded velocity every tick.
+    size_t nCols = static_cast<size_t>(Js_t.cols());
+    M.resize(rowTrans + rowRot, nCols);
     b.resize(rowTrans + rowRot);
     if (rowTrans > 0) {
-      M.block(0, 0, rowTrans, rowTrans + rowRot) = Js_t;
+      M.block(0, 0, rowTrans, nCols) = Js_t;
     }
     if (rowRot > 0) {
-      M.block(rowTrans, 0, rowRot, rowTrans + rowRot) = Js_r;
+      M.block(rowTrans, 0, rowRot, nCols) = Js_r;
     }
-    double det = M.determinant();
-    if (fabs(det) < K_EPSILON) {
+    // SVD-based solve handles the square case exactly as the previous
+    // M.inverse() did, and additionally gives the minimum-norm
+    // least-squares solution when M is rectangular (redundant DOF) or
+    // rank-deficient, instead of requiring/assuming a square invertible M.
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(M, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    size_t taskRank = std::min(static_cast<size_t>(M.rows()), static_cast<size_t>(M.cols()));
+    if (static_cast<size_t>(svd.rank()) < taskRank) {
         strs.str("");
         strs << GetName() <<  " is singular, can not compute IK "
               << " in function "
@@ -273,9 +287,9 @@ int serialArm::CartToJnt(const Pose& p, const Twist& v,
     Vec t_v = v1.getLinearVel();
     Vec t_w = v1.getAngularVel();
     double spdNorm = PickCartErr(t_v.ToEigenVec(),
-                                 t_w.ToEigenVec(), 
+                                 t_w.ToEigenVec(),
                                   b, true);
-    qdot = M.inverse() * b;
+    qdot = svd.solve(b);
     return 0;
 }
 

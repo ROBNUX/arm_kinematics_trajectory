@@ -693,14 +693,13 @@ int Quattro_4::CalcPassive(const Eigen::VectorXd& q, const Pose& p,
 }
 
 int Quattro_4::SolvePolyRoots(std::vector<double>& solution) {
-  std::ostringstream strs;
-  if (solution.empty()) {
-    strs.str("");
-    strs << "input parameter is null in function " << __FUNCTION__
-              << " at line " << __LINE__ << std::endl;
-    LOG_ERROR(strs);
-    return -32;
-  }
+  // solution is an OUTPUT parameter, filled below (resized/assigned at the
+  // "index > 0" block further down) -- every caller passes a
+  // freshly-declared, empty vector by design (see FindRootsWithEigen's
+  // `std::vector<double> sol;`), so an empty-on-entry check here rejected
+  // every single call before any work happened. The real "no solution
+  // found" case is already handled correctly by the caller, which checks
+  // sol.empty() AFTER this function returns.
   // check if there are any higher order coefficients are 0,
   // then the problem can be simplified
   int ind = 0;

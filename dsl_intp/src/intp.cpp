@@ -1039,7 +1039,7 @@ bool CreateRobot::ForwardKin(const EigenDRef<Eigen::VectorXd> &jnt,
         jnt(i) = jnt1[i];
     }*/
     jnt = jnt1;
-    return true; 
+    return true;
  }
 
   bool CreateRobot::GetJntFromPose(const EigenDRef<Eigen::VectorXd> &pose,

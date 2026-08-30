@@ -71,7 +71,11 @@ bool TrajectorySegment::setBoundCond(const Pose &start_pos,
   ) {
     ss.str("");
     ss << "config not matching, at function " << __FUNCTION__ << ", line "
-       << __LINE__ << std::endl;
+       << __LINE__ << ": start branchFlags_=[";
+    for (int v : branchFlags_) ss << v << ",";
+    ss << "] goalBranchFlags=[";
+    for (int v : goalBranchFlags) ss << v << ",";
+    ss << "]" << std::endl;
     LOG_ERROR(ss);
     return false;
   }

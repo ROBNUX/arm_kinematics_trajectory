@@ -204,6 +204,29 @@ class KINEMATICS_API serialArmPOE : public serialArm {
   ArmTopology                  topology_{ArmTopology::Unknown};
   mutable SrsData              srs_data_{};          ///< valid when topology_ == SevenRSRS
   mutable int                  lock_idx_{0};          ///< valid when topology_ == SevenRJointLock
+  // Last solution returned by cartToJntSRS, used only to break ties among
+  // multiple IK candidates that reach the target equally well (this SRS
+  // topology is redundant, so distinct joint-space solutions routinely tie
+  // in Cartesian residual -- picking by residual alone let the choice flip
+  // between distant candidates from one MoveLine sample to the next, which
+  // showed up as visible per-frame jitter). Empty until the first solve.
+  mutable Eigen::VectorXd      srs_last_q_{};
+  // Discrete branch (elbow-left/right x wrist-flip/non-flip, i.e. the
+  // q1_sign/q5_sign used to generate srs_last_q_ -- q3's sign is not a
+  // third independent branch: q3=-base_q3 reproduces the identical arm
+  // pose as q3=+base_q3 via q2->q2+pi, q3->-q3, q4->q4+pi, so only
+  // q3=+base_q3 is ever generated). Per swivel angle there are up to 4
+  // *physically distinct* solutions tied in residual -- not just
+  // parametrization noise -- so a plain joint-space nearest-neighbor
+  // search across all of them can occasionally jump to a different
+  // branch when it happens to look close on one joint, which showed up
+  // as large (multi-radian) single-tick joint jumps. Locking to the
+  // previous branch and only sweeping the continuous swivel angle within
+  // it (falling back to a full search only if that branch becomes
+  // infeasible) keeps the arm on one continuous solution.
+  mutable bool                 srs_have_branch_{false};
+  mutable int                  srs_last_q1_sign_{0};
+  mutable int                  srs_last_q5_sign_{0};
 };
 
 // ---------------------------------------------------------------------------
