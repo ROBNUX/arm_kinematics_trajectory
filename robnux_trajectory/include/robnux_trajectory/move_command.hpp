@@ -89,8 +89,8 @@ class ProfileData {
       max_vel_r_ = pf.max_vel_r_;
       max_acc_r_ = pf.max_acc_r_;
       max_jerk_r_ = pf.max_jerk_r_;
-      return *this;
     }
+    return *this;
   }
   // translational maximal speed, acceleration, and jerk
   double max_vel_t_;
