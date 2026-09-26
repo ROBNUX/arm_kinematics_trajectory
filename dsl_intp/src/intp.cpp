@@ -345,6 +345,8 @@ namespace kinematics_lib{
                        const unsigned int appr_perc) {
     catch_signals();
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -412,13 +414,15 @@ namespace kinematics_lib{
            startPose, goalPose, current_pf, appr_perc);
     // update last pose
     last_goal_ = rp; //rp.getDefaultPose(&last_goal_);
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
   }
 
   bool CreateRobot::ARC(const LocData &loc_1, const LocData &loc_2,
                         const FrameData &fd, const unsigned int appr_perc) {
     catch_signals();
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -494,13 +498,15 @@ namespace kinematics_lib{
                                              goalPose, current_pf, appr_perc);
     // update last pose
     last_goal_ = rp;
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
   }
 
   bool CreateRobot::PTP(const LocData &dest,
                         const FrameData &fd, const unsigned int appr_perc) {
     catch_signals();
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received 
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -579,13 +585,15 @@ namespace kinematics_lib{
      */ 
     // update last pose
     last_goal_ = rp;
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
   }
 
   bool CreateRobot::PTPJ(const EigenDRef<Eigen::VectorXd>& jnt, 
           const unsigned int appr_perc) {
     catch_signals();
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received 
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -639,13 +647,15 @@ namespace kinematics_lib{
     rp.setDefaultPose(goalPose);
     // update last pose
     last_goal_ = rp;
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
   }
 
   bool CreateRobot::LIN_REL(const LocData &rel_loc, const FrameData &fd,
                             const unsigned int appr_perc) {
     catch_signals();
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -700,7 +710,7 @@ namespace kinematics_lib{
            startPose, goalPose, current_pf, appr_perc);
 
     last_goal_ = goal_ref;
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
     return true;
   }
 
@@ -708,6 +718,8 @@ namespace kinematics_lib{
                             const FrameData &fd,
                             const unsigned int appr_perc) {
     std::ostringstream strs;
+    const refPose prev_goal = last_goal_;
+    const Eigen::VectorXd prev_jp = last_jp_d_;
     // first check if initialized and feedback has been received 
     if (!initialized_ || !feedback_done_) {
       return false;
@@ -762,7 +774,77 @@ namespace kinematics_lib{
 
     // update last pose
     last_goal_ = goal_ref;
-    return tjBuff_->AddCommand(cmd);
+    return QueueCommand(cmd, prev_goal, prev_jp);
+  }
+
+  bool CreateRobot::QueueCommand(const std::shared_ptr<MotionCommand>& cmd,
+                                 const refPose& prev_goal,
+                                 const Eigen::VectorXd& prev_jp) {
+    cmd->setScriptLine(script_line_);
+    if (!tjBuff_->AddCommand(cmd)) {
+      return false;
+    }
+    history_.push_back({cmd, prev_goal, prev_jp});
+    if (history_.size() > MAX_HISTORY) {
+      history_.pop_front();
+    }
+    return true;
+  }
+
+  bool CreateRobot::StepBack() {
+    std::ostringstream strs;
+    if (!initialized_ || !feedback_done_ || history_.empty()) {
+      return false;
+    }
+    // only reverse when everything queued has been executed, so the robot is
+    // really at the goal of the last command
+    if (!MotionDone()) {
+      strs << "StepBack: robot still moving, ignored" << std::endl;
+      LOG_ERROR(strs);
+      return false;
+    }
+    HistoryEntry last = history_.back();
+    const std::shared_ptr<MotionCommand>& cmd = last.cmd;
+    Pose start = cmd->GetStartPose();
+    Pose goal = cmd->GetDestPose();
+
+    std::shared_ptr<MotionCommand> rev;
+    switch (cmd->GetCMDID()) {
+      case ID_LINE:
+        rev = std::make_shared<LineMotionCommand>(goal, start,
+                                                  cmd->GetProfile(), 0);
+        break;
+      case ID_ARC: {
+        auto arc = std::dynamic_pointer_cast<ArcMotionCommand>(cmd);
+        if (!arc) return false;
+        rev = std::make_shared<ArcMotionCommand>(goal, arc->GetMidPose(), start,
+                                                 cmd->GetProfile(), 0);
+        break;
+      }
+      case ID_PTP: {
+        auto ptp = std::dynamic_pointer_cast<PTPMotionCommand>(cmd);
+        if (!ptp) return false;
+        rev = std::make_shared<PTPMotionCommand>(
+            *ptp->GetGoalJnts(), goal, *ptp->GetStartJnts(), start,
+            *ptp->GetJntProfile(), armMap_, 0);
+        break;
+      }
+      default:
+        return false;
+    }
+    rev->setScriptLine(cmd->getScriptLine());
+    if (!tjBuff_->AddCommand(rev)) {
+      return false;
+    }
+    // restore the planning state to before the reversed command, so the next
+    // motion command starts from where the robot will actually be
+    last_goal_ = last.prev_goal;
+    last_jp_d_ = last.prev_jp;
+    history_.pop_back();
+    strs << "StepBack: reversing motion of script line "
+         << cmd->getScriptLine() << std::endl;
+    LOG_INFO(strs);
+    return true;
   }
 
   void CreateRobot::publishJnt(const Eigen::VectorXd &jnt_a, const Pose &pose) {

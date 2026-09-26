@@ -29,14 +29,19 @@ class motionlinemapper {
   motionlinemapper(const int &objid);
   virtual ~motionlinemapper();
   motionlinemapper(const motionlinemapper &other);
+  // line of the motion command currently executing, -1 if none
   int get_cur_motionline();
+  // line of the previously executed motion command, -1 if none
+  int get_last_motionline();
+  // called by the executor when it starts the next trajectory
+  void advance();
   int addmotionline(const motionline_element_t &ml);
   void reset();
   std::queue<motionline_element_t> ml_;
   std::mutex mtx_;
 
  private:
-  motionline_element_t cur_, last_;
+  motionline_element_t cur_{-1, 0, 0, 0.0}, last_{-1, 0, 0, 0.0};
   int obj_id = 0;
 };
 

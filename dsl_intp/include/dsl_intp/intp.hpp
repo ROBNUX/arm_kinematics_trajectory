@@ -20,6 +20,7 @@
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "pluginlib/class_loader.hpp"
 #include <chrono>
+#include <deque>
 #include <thread>
 #include <csignal>
 
@@ -141,6 +142,21 @@ namespace kinematics_lib {
 
    void ShutDown();
 
+   //! script line recorded into the next motion command (set by the python binding)
+   void SetScriptLine(const int line) { script_line_ = line; }
+
+   //! script line of the motion currently executing, -1 if none
+   int GetCurrentLine() { return tjBuff_ ? tjBuff_->getml()->get_cur_motionline() : -1; }
+
+   //! sync (debug) mode: each motion call returns only after the motion finishes,
+   //! so a debugger's current line matches what the robot has done
+   void SetSyncMode(const bool on) { sync_mode_ = on; }
+   bool GetSyncMode() const { return sync_mode_; }
+
+   //! move back through the last executed motion command (reverse motion);
+   //! only allowed when the robot is idle. Repeated calls step further back.
+   bool StepBack();
+
   private:
    int DoF_;  // degrees of freedom
    // TrajectoryBuffer object for adding new command into command buffer, and then converting command buffer
@@ -226,6 +242,23 @@ namespace kinematics_lib {
    int path_publish_counter_{0};   // publish path every N steps to limit serialization cost
    std::vector<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr> pub_joint_control_;
    std::thread spin_thread_;
+   // script line for the next motion command
+   int script_line_{0};
+   // sync (debug) mode flag
+   bool sync_mode_{false};
+
+   // queue a motion command and remember it (with the planning state before
+   // it) so that StepBack can reverse it
+   bool QueueCommand(const std::shared_ptr<MotionCommand>& cmd,
+                     const refPose& prev_goal,
+                     const Eigen::VectorXd& prev_jp);
+   struct HistoryEntry {
+     std::shared_ptr<MotionCommand> cmd;
+     refPose prev_goal;         // last_goal_ before the command
+     Eigen::VectorXd prev_jp;   // last_jp_d_ before the command
+   };
+   std::deque<HistoryEntry> history_;
+   static const size_t MAX_HISTORY = 1000;
  };
 }
 #endif  /* ROBINTP_INTP_HPP */

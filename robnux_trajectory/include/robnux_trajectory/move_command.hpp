@@ -187,8 +187,8 @@ class LocData {
       C_ = lc.C_;
       branch_ = lc.branch_;
       turns_ = lc.turns_;
-      return *this;
     }
+    return *this;
   }
   double x_;
   double y_;
@@ -306,6 +306,7 @@ class ArcMotionCommand : public MotionCommand {
                    const ProfileData& pf, const int percent = 0)
       : MotionCommand(ID_ARC, start, end, pf,
                       std::max(0, std::min(percent, 100))) {
+    mid_ = mid;
     Vec p1 = start.getTranslation();
     Vec p2 = mid.getTranslation();
     Vec p3 = end.getTranslation();

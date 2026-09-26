@@ -1,3 +1,6 @@
+#include <chrono>
+#include <thread>
+
 #include <pybind11/eigen.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
@@ -63,6 +66,42 @@ py::tuple py_InverseKin(kinematics_lib::CreateRobot& self,
   EigenDRef<Eigen::VectorXd> jnt_ref(jnt);
   bool ok = self.InverseKin(pose, jnt_ref);
   return py::make_tuple(ok, jnt);
+}
+
+// Line number of the python statement that called into the binding, so the
+// motion command can be mapped back to the script line (editor highlighting).
+int caller_line() {
+  PyFrameObject* frame = PyEval_GetFrame();  // borrowed reference
+  return frame ? PyFrame_GetLineNumber(frame) : 0;
+}
+
+// In sync mode, block until the robot has finished all queued motion. The GIL
+// is released while waiting so other python threads (and the debugger) run,
+// and Ctrl+C is honoured between polls.
+void wait_if_sync(kinematics_lib::CreateRobot& self) {
+  if (!self.GetSyncMode()) return;
+  while (true) {
+    {
+      py::gil_scoped_release release;
+      for (int i = 0; i < 25; i++) {
+        if (self.MotionDone()) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+      }
+    }
+    if (PyErr_CheckSignals() != 0) throw py::error_already_set();
+  }
+}
+
+// Wrap a CreateRobot motion method: record the caller's script line, queue the
+// command, then wait for it in sync mode.
+template <typename... Args>
+auto motion(bool (kinematics_lib::CreateRobot::*fn)(Args...)) {
+  return [fn](kinematics_lib::CreateRobot& self, Args... args) {
+    self.SetScriptLine(caller_line());
+    bool ok = (self.*fn)(args...);
+    if (ok) wait_if_sync(self);
+    return ok;
+  };
 }
 
 }  // namespace
@@ -353,12 +392,12 @@ PYBIND11_MODULE(rob_motion_commands, m) {
       .def("SetSpeed", &kinematics_lib::CreateRobot::SetSpeedScale)
       .def("GetSpeed", &kinematics_lib::CreateRobot::GetSpeedScale)
       .def("SetJntProfile", &kinematics_lib::CreateRobot::SetJntProfile)
-      .def("MoveLine", &kinematics_lib::CreateRobot::LIN)
-      .def("MoveArc", &kinematics_lib::CreateRobot::ARC)
-      .def("MovePTP", &kinematics_lib::CreateRobot::PTP)
-      .def("MovePTPJ", &kinematics_lib::CreateRobot::PTPJ)
-      .def("MoveLineRel", &kinematics_lib::CreateRobot::LIN_REL)
-      .def("MovePTPRel", &kinematics_lib::CreateRobot::PTP_REL)
+      .def("MoveLine", motion(&kinematics_lib::CreateRobot::LIN))
+      .def("MoveArc", motion(&kinematics_lib::CreateRobot::ARC))
+      .def("MovePTP", motion(&kinematics_lib::CreateRobot::PTP))
+      .def("MovePTPJ", motion(&kinematics_lib::CreateRobot::PTPJ))
+      .def("MoveLineRel", motion(&kinematics_lib::CreateRobot::LIN_REL))
+      .def("MovePTPRel", motion(&kinematics_lib::CreateRobot::PTP_REL))
       .def("GetCartFromJnt", &py_GetCartFromJnt, py::arg("jnt"),
            py::arg("cart_size"),
            "Forward kin → flat Cartesian vector. Returns (ok, cart).")
@@ -372,5 +411,15 @@ PYBIND11_MODULE(rob_motion_commands, m) {
            "Forward kin → LocData. Returns (ok, pose).")
       .def("InverseKin", &py_InverseKin, py::arg("pose"), py::arg("dof"),
            "Inverse kin from LocData. Returns (ok, jnt).")
+      .def("SetSyncMode", &kinematics_lib::CreateRobot::SetSyncMode,
+           py::arg("on"),
+           "When on, each Move* call returns only after its motion finishes "
+           "(use while debugging so the current line matches the robot).")
+      .def("GetSyncMode", &kinematics_lib::CreateRobot::GetSyncMode)
+      .def("StepBack", motion(&kinematics_lib::CreateRobot::StepBack),
+           "Reverse the last executed motion command (robot must be idle). "
+           "Call repeatedly to step further back.")
+      .def("GetCurrentLine", &kinematics_lib::CreateRobot::GetCurrentLine,
+           "Script line of the motion currently executing, -1 if none.")
       .def("Shutdown", &kinematics_lib::CreateRobot::ShutDown);
 }

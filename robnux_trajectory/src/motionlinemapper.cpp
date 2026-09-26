@@ -12,11 +12,22 @@ motionlinemapper::motionlinemapper(const motionlinemapper &other) {
   // TODO Auto-generated constructor stub
 }
 
-// returns the line number at the head of the queue, or -1 if empty
 int motionlinemapper::get_cur_motionline() {
   std::lock_guard<std::mutex> lock(mtx_);
-  if (ml_.empty()) return -1;
-  return ml_.front().line;
+  return cur_.line;
+}
+
+int motionlinemapper::get_last_motionline() {
+  std::lock_guard<std::mutex> lock(mtx_);
+  return last_.line;
+}
+
+void motionlinemapper::advance() {
+  std::lock_guard<std::mutex> lock(mtx_);
+  if (ml_.empty()) return;
+  last_ = cur_;
+  cur_ = ml_.front();
+  ml_.pop();
 }
 
 motionlinemapper::motionlinemapper(const int &objid) { obj_id = objid; }
@@ -34,5 +45,6 @@ void motionlinemapper::reset() {
   std::queue<motionline_element_t> ml_empty;
   mtx_.lock();
   std::swap(ml_empty, ml_);
+  cur_ = last_ = motionline_element_t{-1, 0, 0, 0.0};
   mtx_.unlock();
 }

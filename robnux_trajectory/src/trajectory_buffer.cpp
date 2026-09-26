@@ -115,6 +115,7 @@ void TrajectoryBuffer::ProcessCommandBuffer() {
       if (cmdBuffer_.size() > 0) {
         // obtain the current command and then set up the default boundary
         // conditions
+        planning_ = true;
         cur_cmd_ = cmdBuffer_.front();
         cmdBuffer_.pop();
 
@@ -239,13 +240,16 @@ void TrajectoryBuffer::ProcessCommandBuffer() {
           lduration = cart_traj->Duration();
         }
         cart_traj->SetTailBlendDist(cur_approx_dist);
-        mtx_traj_.lock();
-        trajBuffer_.push(cart_traj);
-        mtx_traj_.unlock();
-        motionline_element_t lml_;
+        // register the line before the trajectory becomes visible to the
+        // executor thread, so advance() always finds a matching entry
+        motionline_element_t lml_{};
         lml_.duration = lduration;
         lml_.line = cur_cmd_->getScriptLine();
         lmlmapper_.addmotionline(lml_);
+        mtx_traj_.lock();
+        trajBuffer_.push(cart_traj);
+        mtx_traj_.unlock();
+        planning_ = false;
         if (cur_cmd_) {
           cur_cmd_.reset();
           cur_cmd_ = nullptr;
@@ -269,6 +273,7 @@ void TrajectoryBuffer::ResetBuffer() {
     cur_cmd_.reset();
     cur_cmd_ = nullptr;
   }
+  planning_ = false;
   // shall we set execute state to 0?
   state_ = 0;
   mtx_cmd_.unlock();
@@ -314,6 +319,7 @@ bool TrajectoryBuffer::ExecuteTrajBuffer(const double d_time,
         if (!trajBuffer_.empty()) {
           cur_traj_ = trajBuffer_.front();
           trajBuffer_.pop();
+          lmlmapper_.advance();
           exe_state_++;
         }
       }
@@ -374,6 +380,7 @@ bool TrajectoryBuffer::ExecuteTrajBuffer(const double d_time,
           return true;  // means out jnt will be
         } else if (next_traj_) {
           cur_traj_ = next_traj_;
+          lmlmapper_.advance();
           if (cur_traj_->IsTailBlended() && !trajBuffer_.empty()) {
             next_traj_ = trajBuffer_.front();
             trajBuffer_.pop();
@@ -400,6 +407,7 @@ bool TrajectoryBuffer::ExecuteTrajBuffer(const double d_time,
 void TrajectoryBuffer::resetFault() {
   // fprintf(stdout,"%s::%d",__func__,__LINE__);
   errorCode_ = 0;
+  planning_ = false;
   mtx_cmd_.unlock();
 }
 

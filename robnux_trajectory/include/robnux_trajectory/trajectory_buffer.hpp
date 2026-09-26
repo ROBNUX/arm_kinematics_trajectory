@@ -8,6 +8,7 @@
 #ifndef KINEMATICS_LIB_TRAJECTORY_BUFFER_
 #define KINEMATICS_LIB_TRAJECTORY_BUFFER_
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <mutex>  // std::mutex
 #include <queue>  // std::list
@@ -49,7 +50,9 @@ class TRAJECTORY_API TrajectoryBuffer {
    */
   bool IsCommandBufferFull() { return cmdBuffer_.size() > INIT_CMD_BUFF_SIZE; }
 
-  bool IsCommandBufferEmpty() { return cmdBuffer_.empty(); }
+  // a command being planned has left cmdBuffer_ but is not yet in
+  // trajBuffer_, so it still counts as pending
+  bool IsCommandBufferEmpty() { return cmdBuffer_.empty() && !planning_; }
   /*
    * check if trajBuffer_ is empty
    */
@@ -92,6 +95,8 @@ class TRAJECTORY_API TrajectoryBuffer {
   std::queue<std::shared_ptr<CartTrajectory> > trajBuffer_;
   // current, and next command
   std::shared_ptr<MotionCommand> cur_cmd_;
+  // true while cur_cmd_ is being translated into a trajectory
+  std::atomic<bool> planning_{false};
   // immediate last trajectory
   std::shared_ptr<CartTrajectory> cur_traj_, next_traj_;
 
