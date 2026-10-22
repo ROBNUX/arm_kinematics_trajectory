@@ -202,16 +202,21 @@ def main() -> int:
         print("  PTP sweep complete.")
 
         # ── Demo 3: IK round-trip ─────────────────────────────────────────
-        print("\n--- Demo 3: FK→IK round-trip ---")
+        print("\n--- Demo 3: FK→IK→FK pose round-trip ---")
         for q_deg in [[15, -15, 10, 20, 10, 15, 0], [-10, 10, -5, -15, -8, -10, 0]]:
             jnt = np.array([math.radians(d) for d in q_deg])
             ok_fk, loc = rob.ForwardKin(jnt)
             if ok_fk:
                 ok_ik, jnt_rec = rob.InverseKin(loc, DOF)
                 if ok_ik:
-                    err = np.linalg.norm(np.array(jnt_rec) - jnt)
-                    print(f"  round-trip error: {err:.2e} rad "
-                          f"({'PASS' if err < 1e-3 else 'WARN'})")
+                    # 7 joints for a 6-DOF pose: IK may return another point of
+                    # the arm's self-motion, so compare poses, not joints.
+                    _, loc_rec = rob.ForwardKin(np.array(jnt_rec).ravel())
+                    err = max(abs(loc_rec.x - loc.x), abs(loc_rec.y - loc.y), abs(loc_rec.z - loc.z),
+                              *(abs(math.remainder(a - b, 2 * PI)) for a, b in
+                                ((loc_rec.A, loc.A), (loc_rec.B, loc.B), (loc_rec.C, loc.C))))
+                    print(f"  round-trip pose error: {err:.2e} "
+                          f"({'PASS' if err < 1e-6 else 'WARN'})")
                 else:
                     print("  IK failed")
 

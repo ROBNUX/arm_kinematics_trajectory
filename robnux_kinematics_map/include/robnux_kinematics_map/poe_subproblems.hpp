@@ -2,6 +2,7 @@
 #define ROBNUX_KINEMATICS_MAP_POE_SUBPROBLEMS_HPP_
 
 #include <array>
+#include <cmath>
 #include <utility>
 #include <vector>
 #include <eigen3/Eigen/Core>
@@ -13,6 +14,7 @@ namespace poe_sp {
 static constexpr double SP_FEASIBILITY_TOL = 1e-6;
 static constexpr double SP_DEGENERACY_TOL  = 1e-7;
 static constexpr double SP_NUMERICAL_TOL   = 1e-10;
+static constexpr double SP_TWO_PI          = 2.0 * M_PI;
 
 struct Sp1Result {
     double theta;

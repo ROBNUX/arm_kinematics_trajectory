@@ -32,7 +32,10 @@ Eigen::Vector3d rotate(const Eigen::Vector3d& k, double angle, const Eigen::Vect
 }
 
 double wrapToPi(double a) {
-    return std::fmod(a + M_PI, 2.0 * M_PI) - M_PI;
+    // std::fmod keeps the sign of a, so shift negative remainders up by 2*pi
+    double r = std::fmod(a + M_PI, SP_TWO_PI);
+    if (r < 0.0) r += SP_TWO_PI;
+    return r - M_PI;
 }
 
 // ---------------------------------------------------------------------------

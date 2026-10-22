@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <sstream>
 
 #include <eigen3/Eigen/Dense>
@@ -330,6 +331,31 @@ void serialArmPOE::solveSphericalWrist(const Eigen::Matrix3d& r36,
 // ===========================================================================
 
 namespace {
+// Max FK residual (position [m] + rotation angle [rad]) for an IK candidate
+// to count as an exact solution.
+static constexpr double IK_RESIDUAL_TOL = 1e-4;
+// Joint indices used by the 6R branch flags.
+static constexpr int SIXR_SHOULDER_JOINT = 1;   // q2 (first arm-plane joint)
+static constexpr int SIXR_ELBOW_JOINT    = 2;   // q3
+static constexpr int SIXR_WRIST1_JOINT   = 3;   // q4
+static constexpr int SIXR_WRIST2_JOINT   = 4;   // q5
+static constexpr int SIXR_WRIST3_JOINT   = 5;   // q6
+// SRS 7R joints whose signs select its discrete branches (see cartToJntSRS).
+static constexpr int SRS_SHOULDER_JOINT = 1;    // q1 = q1_sign * acos(..)
+static constexpr int SRS_WRIST_JOINT    = 5;    // q5 = q5_sign * acos(..)
+// SRS branch flags honored by cartToJntSRS: {q1 sign, q5 sign}.
+static constexpr size_t SRS_NUM_BRANCH_FLAGS = 2;
+// 6R branch flags: {shoulder, elbow, wrist}.
+static constexpr size_t SIXR_NUM_BRANCH_FLAGS = 3;
+// Numeric (damped least squares) IK fallback.
+static constexpr int    IK_NUM_MAX_ITER  = 200;    // iterations per seed
+static constexpr double IK_NUM_DAMPING   = 1e-3;   // LM damping lambda
+static constexpr double IK_NUM_CONV_TOL  = 1e-12;  // |pose error| to stop
+static constexpr double IK_NUM_MAX_STEP  = 0.5;    // max joint step [rad]
+static constexpr int    IK_NUM_RESTARTS  = 64;     // extra seeds when cold
+static constexpr unsigned IK_NUM_SEED    = 12345u; // fixed RNG seed -> deterministic
+// Branch flag for a signed quantity: 0 for >= 0, 1 for < 0.
+static int signFlag(double v) { return v >= 0.0 ? 0 : 1; }
 struct Cand { Eigen::VectorXd q; double res; int oi, ii; };
 static double fkRes(const Eigen::VectorXd& q, const Eigen::Matrix4d& T,
              const std::function<Eigen::Matrix4d(const Eigen::VectorXd&)>& fk) {
@@ -338,16 +364,26 @@ static double fkRes(const Eigen::VectorXd& q, const Eigen::Matrix4d& T,
     Eigen::AngleAxisd aa(Tf.block<3,3>(0,0).transpose()*T.block<3,3>(0,0));
     return pe+std::abs(aa.angle());
 }
-static Cand pickBest(std::vector<Cand>& cv, const std::vector<int>& br) {
+// Sort candidates by residual; return the exact solution (residual within
+// IK_RESIDUAL_TOL) whose geometric branch matches br, else the best exact one.
+// Returns false when no candidate is exact.
+static bool pickByBranch(std::vector<Cand>& cv, const std::vector<int>& br,
+                         const std::function<std::vector<int>(const Eigen::VectorXd&)>& branchOf,
+                         Eigen::VectorXd& qo) {
+    if (cv.empty()) return false;
     std::sort(cv.begin(),cv.end(),[](const Cand&a,const Cand&b){return a.res<b.res;});
-    if (br.size()>=2) {
-        int w0=br[0],w1=br[1];
-        for (auto& c:cv) if(c.oi==w0&&c.ii==w1) return c;
+    if (cv.front().res>IK_RESIDUAL_TOL) return false;
+    if (br.size()>=SIXR_NUM_BRANCH_FLAGS) {
+        for (auto& c:cv) {
+            if (c.res>IK_RESIDUAL_TOL) break;
+            auto cb=branchOf(c.q);
+            if (std::equal(cb.begin(),cb.end(),br.begin())) { qo=c.q; return true; }
+        }
     }
-    return cv.front();
+    qo=cv.front().q; return true;
 }
 // Wrap angle to (-pi, pi]
-static double wrapPi(double a) { return std::fmod(a+M_PI,2*M_PI)-M_PI; }
+static double wrapPi(double a) { return poe_sp::wrapToPi(a); }
 // Joint-space distance that treats each joint as periodic (mod 2*pi) --
 // atan2-derived angles wrap at +-pi, so a joint that physically moved by a
 // tiny amount across that boundary (e.g. +3.14 -> -3.13) has a *raw*
@@ -411,15 +447,47 @@ int serialArmPOE::cartToJntThreeParallel(const Eigen::Matrix4d& T,
             Eigen::Vector3d p2r=p[2]+rotate(axes_[1],q3,p[3]);
             double q2=sp1(axes_[1],p2r,di).theta;
             double q4=wrapToPi(t14-q2-q3);
-            Eigen::VectorXd qc(6); qc<<q1,q2,q3,q4,q5,q6;
+            Eigen::VectorXd qc(6); qc<<wrapToPi(q1),wrapToPi(q2),wrapToPi(q3),q4,wrapToPi(q5),wrapToPi(q6);
             cv.push_back({qc,fkRes(qc,T,fk),oi,ii++});
         }
         ++oi;
     }
-    if(cv.empty()) return -ERR_ROB_IK_OUTOF_REACH;
-    auto best=pickBest(cv,br);
-    if(best.res>1e-4) return -ERR_ROB_IK_OUTOF_REACH;
-    qo=best.q; return 0;
+    // Select by geometric branch, not by (oi, ii): sp6/sp3 return their
+    // solutions in an order that changes as the target moves, so a fixed
+    // index pair maps to different physical configurations along a path
+    // (MoveLine flicker) and does not even round-trip FK -> IK.
+    auto branchOf=[this](const Eigen::VectorXd& q){return sixRBranch(q);};
+    if(!pickByBranch(cv,br,branchOf,qo)) return -ERR_ROB_IK_OUTOF_REACH;
+    return 0;
+}
+
+std::vector<int> serialArmPOE::sixRBranch(const Eigen::VectorXd& q) const {
+    // shoulder: wrist point in front of / behind joint 1's axis, measured along
+    //           the arm plane's reach direction (plane normal = J2 axis after
+    //           q1); 0 when the wrist point is on that axis (shoulder singularity)
+    // elbow:    a3 . (upper x R(a3,q3) forearm), 0 when upper arm and forearm
+    //           are aligned (stretched/folded elbow singularity)
+    // wrist:    a5 . (a4 x R(a5,q5) a6), 0 when wrist axes 4 and 6 are
+    //           parallel (wrist singularity)
+    // For the UR (ThreeParallel) geometry these reduce to sin(q3) and sin(q5).
+    const int last=static_cast<int>(DoF_)-1;
+    Eigen::Matrix4d T=poeFk(q);
+    Eigen::Matrix3d r06=T.block<3,3>(0,0)*T_right_[last].block<3,3>(0,0).transpose();
+    Eigen::Vector3d p16=T.block<3,1>(0,3)-T_left_[0].block<3,1>(0,3)-r06*T_right_[last].block<3,1>(0,3);
+    Eigen::Vector3d reach=(poe_sp::rotMat(axes_[0],q(0))*axes_[SIXR_SHOULDER_JOINT]).cross(axes_[0]);
+
+    // forearm: elbow -> next joint (ThreeParallel) or -> wrist center (spherical wrist)
+    Eigen::Vector3d upper=T_left_[SIXR_ELBOW_JOINT].block<3,1>(0,3);
+    Eigen::Vector3d fore=T_left_[SIXR_WRIST1_JOINT].block<3,1>(0,3);
+    if (topology_!=ArmTopology::ThreeParallel)
+        fore+=T_left_[SIXR_WRIST2_JOINT].block<3,1>(0,3)+T_left_[SIXR_WRIST3_JOINT].block<3,1>(0,3);
+    const Eigen::Vector3d& a3=axes_[SIXR_ELBOW_JOINT];
+    double elbow=a3.dot(upper.cross(poe_sp::rotMat(a3,q(SIXR_ELBOW_JOINT))*fore));
+
+    const Eigen::Vector3d& a5=axes_[SIXR_WRIST2_JOINT];
+    double wrist=a5.dot(axes_[SIXR_WRIST1_JOINT].cross(
+        poe_sp::rotMat(a5,q(SIXR_WRIST2_JOINT))*axes_[SIXR_WRIST3_JOINT]));
+    return {signFlag(reach.dot(p16)), signFlag(elbow), signFlag(wrist)};
 }
 
 // ===========================================================================
@@ -452,16 +520,16 @@ int serialArmPOE::cartToJntSphericalTwoParallel(const Eigen::Matrix4d& T,
             std::vector<Eigen::Vector3d> w; solveSphericalWrist(r36,w);
             for(auto&wv:w){
                 Eigen::VectorXd qc(6); qc<<q1,q2,q3,wv(0),wv(1),wv(2);
+                qc=qc.unaryExpr([](double a){return wrapToPi(a);});
                 cv.push_back({qc,fkRes(qc,T,fk),oi,ii});
             }
             ++ii;
         }
         ++oi;
     }
-    if(cv.empty()) return -ERR_ROB_IK_OUTOF_REACH;
-    auto best=pickBest(cv,br);
-    if(best.res>1e-4) return -ERR_ROB_IK_OUTOF_REACH;
-    qo=best.q; return 0;
+    auto branchOf=[this](const Eigen::VectorXd& q){return sixRBranch(q);};
+    if(!pickByBranch(cv,br,branchOf,qo)) return -ERR_ROB_IK_OUTOF_REACH;
+    return 0;
 }
 
 // ===========================================================================
@@ -493,16 +561,16 @@ int serialArmPOE::cartToJntSphericalTwoIntersecting(const Eigen::Matrix4d& T,
             std::vector<Eigen::Vector3d> w; solveSphericalWrist(r36,w);
             for(auto&wv:w){
                 Eigen::VectorXd qc(6); qc<<q1,q2,q3,wv(0),wv(1),wv(2);
+                qc=qc.unaryExpr([](double a){return wrapToPi(a);});
                 cv.push_back({qc,fkRes(qc,T,fk),oi,ii});
             }
             ++ii;
         }
         ++oi;
     }
-    if(cv.empty()) return -ERR_ROB_IK_OUTOF_REACH;
-    auto best=pickBest(cv,br);
-    if(best.res>1e-4) return -ERR_ROB_IK_OUTOF_REACH;
-    qo=best.q; return 0;
+    auto branchOf=[this](const Eigen::VectorXd& q){return sixRBranch(q);};
+    if(!pickByBranch(cv,br,branchOf,qo)) return -ERR_ROB_IK_OUTOF_REACH;
+    return 0;
 }
 
 // ===========================================================================
@@ -603,22 +671,23 @@ int serialArmPOE::cartToJntSRS(const Eigen::Matrix4d& T,
     struct SrsCand { Eigen::VectorXd q; double theta, q3s; int q1s, q5s; };
     std::vector<SrsCand> cands;
 
-    // Only one sign of q3 is generated. The other, q3=-base_q3, is not a
-    // second physical elbow configuration -- for every theta it reproduces
-    // the *identical* arm pose via the substitution q2->q2+pi, q3->-q3,
-    // q4->q4+pi (q0,q1,q5,q6 unchanged), the same kind of roll+pi/flip
-    // double cover already relating q1_sign to q0. Generating it too would
-    // just duplicate every candidate under a relabeled (q2,q3,q4), doubling
-    // the search for no new reachability and letting the branch-lock below
-    // mistake a relabeling for an actual configuration change.
+    // Both signs of q3 are generated. q3=-base_q3 is not a second physical
+    // elbow configuration -- for every theta it reproduces the identical arm
+    // pose via q2->q2+pi, q3->-q3, q4->q4+pi -- but it is a different joint
+    // *labeling*, and the arm can be at either one (e.g. after a PTP move to
+    // a ready pose with q3<0). Offering only one labeling forces a pi jump in
+    // q2/q4 the first time IK runs from such a pose; with both, the
+    // closest-to-previous selection below keeps the arm's current labeling.
     for (int swivel_i = 0; swivel_i < N_SWIVEL; ++swivel_i) {
         double theta = -M_PI + swivel_i * (2.0*M_PI / N_SWIVEL);
-        for (int q1_sign : {+1, -1}) {
-            for (int q5_sign : {+1, -1}) {
-                Eigen::VectorXd qc = qFromTheta(theta, base_q3, q1_sign, q5_sign);
-                if (!qc.allFinite()) continue;
-                if (verifyCandidate(qc, T))
-                    cands.push_back({qc, theta, base_q3, q1_sign, q5_sign});
+        for (double q3s : {base_q3, -base_q3}) {
+            for (int q1_sign : {+1, -1}) {
+                for (int q5_sign : {+1, -1}) {
+                    Eigen::VectorXd qc = qFromTheta(theta, q3s, q1_sign, q5_sign);
+                    if (!qc.allFinite()) continue;
+                    if (verifyCandidate(qc, T))
+                        cands.push_back({qc, theta, q3s, q1_sign, q5_sign});
+                }
             }
         }
     }
@@ -641,7 +710,7 @@ int serialArmPOE::cartToJntSRS(const Eigen::Matrix4d& T,
         double r = fkRes(c.q, T, fk);
         if (r < best_res) best_res = r;
     }
-    if (best_res > 1e-4) return -ERR_ROB_IK_OUTOF_REACH;
+    if (best_res > IK_RESIDUAL_TOL) return -ERR_ROB_IK_OUTOF_REACH;
 
     // Second pass: among candidates that reach the target essentially as
     // well as the best one (this topology's redundancy means several
@@ -664,10 +733,15 @@ int serialArmPOE::cartToJntSRS(const Eigen::Matrix4d& T,
     // previous branch yet (first call).
     constexpr double kResTol = 1e-6;
     const bool have_seed = (srs_last_q_.size() == static_cast<int>(DoF_)) && srs_have_branch_;
+    // Branch to lock: the requested flags {q1 sign, q5 sign} (as JntToCart
+    // reports them) when given, else the previous solution's branch.
+    const bool have_request = branch.size() >= SRS_NUM_BRANCH_FLAGS;
+    const int want_q1s = have_request ? (branch[0] == 0 ? 1 : -1) : srs_last_q1_sign_;
+    const int want_q5s = have_request ? (branch[1] == 0 ? 1 : -1) : srs_last_q5_sign_;
     bool branch_available = false;
-    if (have_seed) {
+    if (have_seed || have_request) {
         for (auto& c : cands) {
-            if (c.q1s == srs_last_q1_sign_ && c.q5s == srs_last_q5_sign_ &&
+            if (c.q1s == want_q1s && c.q5s == want_q5s &&
                 fkRes(c.q, T, fk) <= best_res + kResTol) { branch_available = true; break; }
         }
     }
@@ -677,7 +751,7 @@ int serialArmPOE::cartToJntSRS(const Eigen::Matrix4d& T,
         double r = fkRes(c.q, T, fk);
         if (r > best_res + kResTol) continue;
         if (branch_available &&
-            !(c.q1s == srs_last_q1_sign_ && c.q5s == srs_last_q5_sign_)) continue;
+            !(c.q1s == want_q1s && c.q5s == want_q5s)) continue;
         double score = have_seed ? wrappedDist(c.q, srs_last_q_) : r;
         if (score < best_score) { best_score = score; best = c; }
     }
@@ -808,7 +882,9 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
         if (k != lock_idx_) lock_candidates.push_back(k);
     }
 
+    bool any_sub_chain = false;
     for (int ki : lock_candidates) {
+        if (jl_no_analytic_) break;
         for (int si=0; si<N_SAMPLES; ++si) {
             double q_lock = -M_PI + si * (2.0*M_PI / N_SAMPLES);
 
@@ -816,6 +892,7 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
             sub.SetGeometry(buildLockedSubChain(ki, q_lock));
             if (sub.topology_ == ArmTopology::NoMatch || sub.topology_ == ArmTopology::Unknown)
                 continue;
+            any_sub_chain = true;
 
             // Build a Pose from T_target (no branch flags — sub-arm picks best)
             Frame fr = eigenToFrame(T);
@@ -834,8 +911,29 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
         }
         if (!cands.empty()) break;  // this lock joint produced workable solutions
     }
+    if (!any_sub_chain) jl_no_analytic_ = true;
 
-    if (cands.empty()) return -ERR_ROB_IK_OUTOF_REACH;
+    if (cands.empty()) {
+        // No lock joint gives an analytic 6R sub-chain (e.g. Panda: the J4/J7
+        // offsets break every spherical/parallel group). Solve numerically:
+        // first from the previous solution (continuous tracking), then from
+        // zero and a fixed set of restart seeds.
+        std::vector<Eigen::VectorXd> seeds;
+        if (jl_last_q_.size() == static_cast<int>(DoF_)) seeds.push_back(jl_last_q_);
+        seeds.push_back(Eigen::VectorXd::Zero(DoF_));
+        std::mt19937 rng(IK_NUM_SEED);
+        std::uniform_real_distribution<double> uni(-M_PI, M_PI);
+        for (int r=0; r<IK_NUM_RESTARTS; ++r) {
+            Eigen::VectorXd sd(DoF_);
+            for (int i=0; i<static_cast<int>(DoF_); ++i) sd(i)=uni(rng);
+            seeds.push_back(sd);
+        }
+        for (auto& sd : seeds) {
+            Eigen::VectorXd qn;
+            if (numericIK(T, sd, qn)) { qo = qn; jl_last_q_ = qn; return 0; }
+        }
+        return -ERR_ROB_IK_OUTOF_REACH;
+    }
     dedup(cands);
 
     auto fk = [this](const Eigen::VectorXd& q){return poeFk(q);};
@@ -845,8 +943,37 @@ int serialArmPOE::cartToJntJointLock(const Eigen::Matrix4d& T,
         double r = fkRes(qc, T, fk);
         if (r < best_res) { best_res=r; best=qc; }
     }
-    if (best_res > 1e-4) return -ERR_ROB_IK_OUTOF_REACH;
+    if (best_res > IK_RESIDUAL_TOL) return -ERR_ROB_IK_OUTOF_REACH;
     qo = best; return 0;
+}
+
+bool serialArmPOE::numericIK(const Eigen::Matrix4d& T, const Eigen::VectorXd& seed,
+                              Eigen::VectorXd& qo) const {
+    const int N = static_cast<int>(DoF_);
+    Eigen::VectorXd q = seed;
+    Eigen::MatrixXd Jt, Jr, J(6, N);
+    Eigen::Vector3d pe;
+    Eigen::VectorXd e(6);
+    for (int it=0; it<IK_NUM_MAX_ITER; ++it) {
+        Eigen::Matrix4d Tc = poeFk(q);
+        e.head<3>() = T.block<3,1>(0,3) - Tc.block<3,1>(0,3);
+        Eigen::AngleAxisd aa(T.block<3,3>(0,0) * Tc.block<3,3>(0,0).transpose());
+        e.tail<3>() = aa.angle() * aa.axis();
+        if (e.norm() < IK_NUM_CONV_TOL) break;
+        calcGeomJacobian(q, Jt, Jr, pe);
+        J.topRows<3>() = Jt; J.bottomRows<3>() = Jr;
+        Eigen::Matrix<double,6,6> A = J * J.transpose()
+            + IK_NUM_DAMPING * IK_NUM_DAMPING * Eigen::Matrix<double,6,6>::Identity();
+        Eigen::VectorXd dq = J.transpose() * A.ldlt().solve(e);
+        double m = dq.cwiseAbs().maxCoeff();
+        if (m > IK_NUM_MAX_STEP) dq *= IK_NUM_MAX_STEP / m;
+        q += dq;
+    }
+    q = q.unaryExpr([](double a){ return poe_sp::wrapToPi(a); });
+    auto fk = [this](const Eigen::VectorXd& x){ return poeFk(x); };
+    if (fkRes(q, T, fk) > IK_RESIDUAL_TOL) return false;
+    qo = q;
+    return true;
 }
 
 // ===========================================================================
@@ -866,6 +993,22 @@ int serialArmPOE::JntToCart(const Eigen::VectorXd& q, Pose& p) {
         jt[i] = static_cast<int>(t);
     }
     p.setJointTurns(jt);
+
+    if (topology_ == ArmTopology::SevenRSRS) {
+        // The {q1 sign, q5 sign} branch cartToJntSRS honors. FK deliberately
+        // does not touch the IK's continuity state (srs_last_q_): planner
+        // look-ahead and user FK calls on other joint values would otherwise
+        // yank the interpolator's next IK tick away from the arm's path.
+        p.setBranchFlags({signFlag(q(SRS_SHOULDER_JOINT)), signFlag(q(SRS_WRIST_JOINT)), 0});
+        return 0;
+    }
+
+    if (topology_ == ArmTopology::ThreeParallel ||
+        topology_ == ArmTopology::SphericalTwoParallel ||
+        topology_ == ArmTopology::SphericalTwoIntersecting) {
+        p.setBranchFlags(sixRBranch(q));
+        return 0;
+    }
 
     // Branch (oi, ii): try each outer×inner combination {0,1}×{0,1} via IK on
     // the FK result, then keep the candidate whose joint solution is closest to q.

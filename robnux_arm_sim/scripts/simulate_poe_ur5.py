@@ -65,7 +65,22 @@ _TL_POS = [          # T_left translations (parent → joint offset at home)
 
 _TOOL_OFFSET = [0, 0, 0.0823]   # T_right[5] translation (wrist3 → flange)
 
-HOME_JNT = np.zeros(DOF)
+# NOT np.zeros(DOF): all-zero joints put this arm exactly at maximum
+# horizontal reach (x = upper_arm + forearm = 0.4250+0.3922 = 0.8172 m,
+# to the last bit -- a genuine fully-extended singularity, not a solver
+# bug), so any outward Cartesian move from there is correctly rejected as
+# unreachable by IK. Bending the elbow -60 deg pulls the wrist well
+# inside the workspace (reach ~0.74 m) while keeping the resulting
+# orientation's Euler pitch (B) away from +-90 deg, the OTHER singularity
+# a straight -90 deg bend would land exactly on (gimbal lock in the A/B/C
+# representation, where IK's Cartesian-delta demos become unreliable for
+# reasons unrelated to true reachability).
+# Also keep J5 (index 4) away from 0: there the wrist-1 and wrist-3 axes are
+# parallel (UR wrist singularity), IK has infinitely many solutions, and a
+# MoveLine through it flips between them (RViz flicker). [0,-90,90,-90,-90,0]
+# is the standard UR "ready" pose: B=0, and the whole box path stays on one
+# branch with no singularity.
+HOME_JNT = np.array([0, -math.pi / 2, math.pi / 2, -math.pi / 2, -math.pi / 2, 0])
 BASE_OFF  = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
 
 

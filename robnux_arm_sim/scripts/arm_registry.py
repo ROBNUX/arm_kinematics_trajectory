@@ -276,10 +276,12 @@ def _poe_kuka_spec() -> ArmSpec:
 
 
 def _poe_lite6_spec() -> ArmSpec:
-    axes = [[0, 0, 1], [0, 1, 0], [0, 0, 1], [0, 1, 0], [0, 0, 1], [0, 1, 0]]
+    # J2 is an X elbow (was a Z twist along the upper arm, which can never
+    # change the shoulder-wrist distance); matches simulate_poe_lite6.py.
+    axes = [[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 1, 0]]
     tl_pos = [
         [0, 0, 0.300], [0, 0, 0], [0, 0, 0.270],
-        [0.280, 0, 0], [0, 0, 0], [0, 0, 0],
+        [0, 0, 0.280], [0, 0, 0], [0, 0, 0],
     ]
     tool_offset = [0, 0, 0.070]
     bounds = [(-3.0, 3.0), (-2.5, 2.5), (-3.0, 3.0), (-2.5, 2.5), (-3.0, 3.0), (-2.5, 2.5)]

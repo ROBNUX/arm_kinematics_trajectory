@@ -169,6 +169,10 @@ class KINEMATICS_API serialArmPOE : public serialArm {
   int cartToJntThreeParallel(const Eigen::Matrix4d& T_target,
                              const std::vector<int>& branch,
                              Eigen::VectorXd& q_out) const;
+  // Geometric {shoulder, elbow, wrist} branch flags of a 6R joint vector
+  // (each 0/1; each flips exactly at its singularity), used both to label a
+  // pose in JntToCart and to pick the matching candidate in the 6R solvers.
+  std::vector<int> sixRBranch(const Eigen::VectorXd& q) const;
   int cartToJntSphericalTwoParallel(const Eigen::Matrix4d& T_target,
                                     const std::vector<int>& branch,
                                     Eigen::VectorXd& q_out) const;
@@ -187,6 +191,11 @@ class KINEMATICS_API serialArmPOE : public serialArm {
   int cartToJntJointLock(const Eigen::Matrix4d& T_target,
                           const std::vector<int>& branch,
                           Eigen::VectorXd& q_out) const;
+
+  // Damped-least-squares (Levenberg-Marquardt) IK from one seed; true when it
+  // converges to T_target. Fallback for geometries with no analytic sub-chain.
+  bool numericIK(const Eigen::Matrix4d& T_target, const Eigen::VectorXd& seed,
+                 Eigen::VectorXd& q_out) const;
 
   // Build sub-chain geometry with joint lock_idx locked at q_lock.
   // Returns (axes6, T_left6, T_right6) as flat kine_para for a new serialArmPOE(6).
@@ -225,6 +234,14 @@ class KINEMATICS_API serialArmPOE : public serialArm {
   // it (falling back to a full search only if that branch becomes
   // infeasible) keeps the arm on one continuous solution.
   mutable bool                 srs_have_branch_{false};
+  // Last numeric joint-lock fallback solution: seeds the next call so a
+  // moving target is tracked continuously instead of jumping between the
+  // arm's redundant (self-motion) solutions.
+  mutable Eigen::VectorXd      jl_last_q_{};
+  // Set once no lock joint / lock angle yields an analytic 6R sub-chain; the
+  // geometry is fixed after SetGeometry, so later calls go straight to the
+  // numeric fallback instead of re-sweeping DoF_ x N_SAMPLES sub-chains.
+  mutable bool                 jl_no_analytic_{false};
   mutable int                  srs_last_q1_sign_{0};
   mutable int                  srs_last_q5_sign_{0};
 };

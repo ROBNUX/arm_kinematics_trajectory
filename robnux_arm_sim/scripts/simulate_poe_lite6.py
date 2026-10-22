@@ -6,7 +6,7 @@ Simplified uFactory Lite6-like geometry (all dimensions in metres):
   Joint axes at home (q=0):
     J0: Z  (waist)
     J1: Y  (shoulder) — T_left[1]=0 → J0/J1 concurrent → SphericalTwoIntersecting
-    J2: Z  (upper arm twist, NOT parallel to J1)
+    J2: X  (elbow, sideways bend, NOT parallel to J1)
     J3: Y  (forearm pitch)
     J4: Z  (wrist roll)  ┐
     J5: Y  (wrist pitch) ┘ J3/J4/J5 concurrent → spherical wrist
@@ -16,12 +16,17 @@ Simplified uFactory Lite6-like geometry (all dimensions in metres):
     (0,     0, 0    )   ZERO — J0 and J1 concurrent at (0,0,0.300)
                          axes[0](Z) ∩ axes[1](Y) → SphericalTwoIntersecting
     (0,     0, 0.270)   upper arm along Z
-    (0.280, 0, 0    )   forearm extends along X to wrist pivot
+    (0,     0, 0.280)   forearm extends along Z to wrist pivot
     (0,     0, 0    )   concurrent with J3  ┐
-    (0,     0, 0    )   concurrent with J4  ┘  spherical wrist at (0.280, 0, 0.570)
+    (0,     0, 0    )   concurrent with J4  ┘  spherical wrist at (0, 0, 0.850)
   T_right[5] tool offset: (0, 0, 0.070)
 
-  Home FK (q=0): x≈0.280  y≈0  z≈0.640
+  Home FK (q=0): x≈0  y≈0  z≈0.920  (arm straight up)
+
+  J2 used to be a Z twist along the upper arm. Twisting there swings the
+  forearm around the upper arm without changing the shoulder-wrist distance
+  (always 0.389 m), so the wrist could only move on a sphere: MoveLine
+  failed and IK(FK(q)) had infinitely many answers. An X elbow fixes that.
 
 Run:
     python3 simulate_poe_lite6.py
@@ -49,7 +54,7 @@ DOF = 6
 _AXES = [
     [0, 0, 1],   # J0 waist: Z
     [0, 1, 0],   # J1 shoulder pitch: Y — concurrent with J0 (T_left[1]=0)
-    [0, 0, 1],   # J2 upper arm twist: Z  (NOT parallel to J1=Y → not SphericalTwoParallel)
+    [1, 0, 0],   # J2 elbow: X  (NOT parallel to J1=Y → not SphericalTwoParallel)
     [0, 1, 0],   # J3 forearm pitch: Y
     [0, 0, 1],   # J4 wrist roll: Z  ┐
     [0, 1, 0],   # J5 wrist pitch: Y ┘ J3/J4/J5 concurrent → spherical wrist
@@ -59,8 +64,8 @@ _TL_POS = [
     [0,     0, 0.300],   # J0: shoulder height
     [0,     0, 0    ],   # J1: ZERO — ||p[1]|| = 0 → J0/J1 concurrent = intersecting
     [0,     0, 0.270],   # J2: upper arm along Z
-    [0.280, 0, 0    ],   # J3: forearm along X (prevents J2/J3/J4 concurrent detection)
-    [0,     0, 0    ],   # J4: concurrent with J3  ┐ wrist pivot at (0.280, 0, 0.570)
+    [0,     0, 0.280],   # J3: forearm along Z (prevents J2/J3/J4 concurrent detection)
+    [0,     0, 0    ],   # J4: concurrent with J3  ┐ wrist pivot at (0, 0, 0.850)
     [0,     0, 0    ],   # J5: concurrent with J4  ┘
 ]
 
@@ -68,7 +73,9 @@ _TOOL_OFFSET = [0, 0, 0.070]   # wrist → flange
 
 # q=0: arm extends in +X at (0.280, 0, 0.640). Small J2 bend avoids singularity.
 HOME_JNT  = np.zeros(DOF)
-READY_JNT = np.array([0.0, math.radians(-30), math.radians(45), math.radians(30), 0.0, 0.0])
+# J5 (index 4) away from 0: there wrist axes J4 and J6 are parallel (wrist
+# singularity). From this pose the demo's XZ box stays on one IK branch.
+READY_JNT = np.array([0.0, math.radians(30), math.radians(-60), 0.0, math.radians(-60), 0.0])
 BASE_OFF  = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
 
 
@@ -188,7 +195,7 @@ def main() -> int:
         targets_deg = [
             [ 20, -20,  35,  25,  20,  0],
             [-15,  10, -15, -20, -15,  0],
-            [  0, -30,  45,  30,   0,  0],  # return to ready pose
+            [  0,  30, -60,   0, -60,  0],  # return to ready pose
         ]
         for tgt in targets_deg:
             jnt_tgt = np.array([math.radians(d) for d in tgt])

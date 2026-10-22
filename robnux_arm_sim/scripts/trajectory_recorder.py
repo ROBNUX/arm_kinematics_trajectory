@@ -45,6 +45,7 @@ messages):
 import math
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from geometry_msgs.msg import AccelStamped, PoseStamped, TwistStamped
 from sensor_msgs.msg import JointState
@@ -204,11 +205,11 @@ def main() -> int:
     node = TrajectoryRecorder()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()  # SIGINT may have already shut the context down
     return 0
 
 
