@@ -16,7 +16,7 @@ Run this script alongside the above launch:
 
 Robot parameters (Quattro 3-DoF):
   [R1, alpha, b1, c1, d1, h, r1, m_platform]
-  = [0.3, -PI/2, 0.4, 0.0, 1.02, 0.1, 0.0, 0.18*sqrt(2)]
+  = [0.15, -PI/2, 0.2, 0.0, 0.51, 0.05, 0.0, 0.09*sqrt(2)]
 """
 
 import argparse
@@ -32,8 +32,10 @@ PI = math.pi
 
 
 # ─────────────── Quattro 3-DoF parameters ────────────────────────────────────
+# Matching quattro_macro.xacro (see quattro_bot test_quattro_rviz.cpp), so
+# the RViz model moves with the kinematics.
 QUATTRO_PARA = np.array([[
-    0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1, 0.0, 0.18 * math.sqrt(2)
+    0.15, -PI / 2.0, 0.2, 0.0, 0.51, 0.05, 0.0, 0.09 * math.sqrt(2)
 ]]).T
 
 # ─────────────── Quattro_4 4-DoF parameters ─────────────────────────────────
@@ -92,8 +94,7 @@ def run_quattro(dof4: bool) -> int:
 
     fd = m.FrameData(1, 1, m.IpoMode.WORLD)
     Z  = home_loc.z
-    # Quattro_4 (quattro_bot geometry) is much smaller than the 3-DoF model,
-    # and its home is off-centre, so its demo moves around home instead.
+    # Quattro_4's home is off-centre, so the demo moves around home.
     X0, Y0 = (home_loc.x, home_loc.y) if dof4 else (0.0, 0.0)
     YAW0 = home_loc.C if dof4 else 0.0
 
@@ -104,7 +105,7 @@ def run_quattro(dof4: bool) -> int:
     try:
         # ── demo 1: XY square path ────────────────────────────────────────────
         print("\n--- Demo 1: Cartesian square path ---")
-        R = 0.08 if dof4 else 0.30
+        R = 0.08
         square = [
             loc( R,  R, Z),
             loc(-R,  R, Z),
@@ -119,8 +120,8 @@ def run_quattro(dof4: bool) -> int:
 
         # ── demo 2: Z-stroke ─────────────────────────────────────────────────
         print("\n--- Demo 2: Z stroke ---")
-        rob.MoveLine(loc(0.0, 0.0, Z - (0.10 if dof4 else 0.15)), fd, 5)
-        rob.MoveLine(loc(0.0, 0.0, Z + (0.05 if dof4 else 0.10)), fd, 5)
+        rob.MoveLine(loc(0.0, 0.0, Z - 0.10), fd, 5)
+        rob.MoveLine(loc(0.0, 0.0, Z + 0.05), fd, 5)
         rob.MoveLine(loc(0.0, 0.0, Z),        fd, 0)
         wait_done(rob)
         print("  Z stroke complete.")
@@ -142,9 +143,17 @@ def run_quattro(dof4: bool) -> int:
             jnt = jnt_vals.reshape(-1, 1)
             ok_fk, loc_fk = rob.ForwardKin(jnt.flatten())
             if ok_fk:
-                ok_ik, jnt_rec = rob.InverseKin(loc_fk, dof)
-                err = np.linalg.norm(jnt_rec - jnt.flatten())
-                print(f"  error = {err:.2e} rad ({'PASS' if err < 1e-4 else 'WARN'})")
+                # 3-DoF Quattro is over-actuated: IK returns all 4 legs, so
+                # compare poses (FK of the IK result), not joint vectors.
+                ok_ik, jnt_rec = rob.InverseKin(loc_fk, 4)
+                if not ok_ik:
+                    print("  IK failed")
+                    continue
+                _, loc_rec = rob.ForwardKin(np.ravel(jnt_rec)[:dof])
+                err = max(abs(loc_rec.x - loc_fk.x), abs(loc_rec.y - loc_fk.y),
+                          abs(loc_rec.z - loc_fk.z),
+                          abs(math.remainder(loc_rec.C - loc_fk.C, 2 * PI)))
+                print(f"  pose error = {err:.2e} ({'PASS' if err < 1e-6 else 'WARN'})")
 
         print(f"\nQuattro {'4-DoF' if dof4 else '3-DoF'} simulation complete.")
 

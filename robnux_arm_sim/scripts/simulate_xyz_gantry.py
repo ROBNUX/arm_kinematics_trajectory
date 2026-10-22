@@ -10,7 +10,7 @@ IK mapping (from library source):
 DH parameters (Craig convention):
   alpha = [0,   PI/2, -PI/2]   sets Z-then-Y-then-X prismatic axes
   a     = [0,   0,     0   ]
-  theta = [0,   0,     0   ]
+  theta = [0,  -PI/2,   0   ]   (turns the third axis from Z onto X)
   d     = [0,   0,     0   ]   (workspace centred at origin)
 
   pitch = [1, 1, 1]  (default)
@@ -37,7 +37,10 @@ PI = math.pi
 # ─────────────────────────────────────── geometry ────────────────────────────
 ALPHA = [0.0,    PI/2,  -PI/2]
 A     = [0.0,    0.0,    0.0 ]
-THETA = [0.0,    0.0,    0.0 ]
+# theta[1] = -PI/2: with alpha=[0, PI/2, -PI/2] alone the third axis
+# turns back onto Z (a Z/-Y/Z gantry); the -PI/2 turn about joint 1 puts it
+# on X, matching XYZGantry::CartToJnt (q0=z, q1=-y, q2=x) and the URDF.
+THETA = [0.0,   -PI/2,   0.0 ]
 D     = [0.0,    0.0,    0.0 ]
 
 PARA = np.array([ALPHA + A + THETA + D]).T      # (12×1)
@@ -126,7 +129,8 @@ def main() -> int:
             (0.0, 0.0, -0.1),
         ]
         for px, py, pz in test_pts:
-            pose = np.array([[px, py, pz, 0, 0, 0]]).T
+            # GetJntFromPose reads 8 values: x, y, z, A, B, C, branch flag, turns
+            pose = np.array([[px, py, pz, 0, 0, 0, 0, 0]]).T
             ok_ik, jnt = rob.GetJntFromPose(pose.flatten(), DOF)
             if ok_ik:
                 ok_fk, cart = rob.GetCartFromJnt(jnt, 7)

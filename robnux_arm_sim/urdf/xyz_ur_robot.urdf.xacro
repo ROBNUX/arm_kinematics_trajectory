@@ -2,11 +2,11 @@
 <!--
   XYZ_UR 5-DOF robot URDF: XYZ Gantry (3P) + UJNT (2R) tilt/pan head
   Joints: JOINT_0_ACT (P/Z), JOINT_1_ACT (P/-Y), JOINT_2_ACT (P/X),
-          JOINT_3_ACT (R/Y, tilt), JOINT_4_ACT (R/X or Z, pan)
+          JOINT_3_ACT (R/Z, pan), JOINT_4_ACT (R/Y, tilt)
 
   DH parameters (XYZ part same as XYZGantry; UJNT part appended):
-    XYZ: alpha=[0,PI/2,-PI/2], a=[0,0,0], theta=[0,0,0], d=[0,0,0]
-    UJNT: alpha=[-PI/2,PI/2], a=[0,0], theta=[0,0], d=[0.05,0.05]
+    XYZ: alpha=[0,PI/2,-PI/2], a=[0,0,0], theta=[0,-PI/2,0], d=[0,0,0]
+    UJNT: alpha=[0,-PI/2], a=[0,0], theta=[0,0], d=[0.05,0.05]
 -->
 <robot name="xyz_ur_robot" xmlns:xacro="http://ros.org/wiki/xacro">
 
@@ -148,12 +148,12 @@
     </collision>
   </link>
 
-  <!-- ======================================================= UJNT part: J3 tilt (revolute Y) -->
+  <!-- ======================================================= UJNT part: J3 pan (revolute Z, as UJNT::CartToJnt) -->
   <joint name="JOINT_3_ACT" type="revolute">
     <parent link="link_x_carriage"/>
     <child  link="link_ujnt_1"/>
     <origin xyz="0 0 -0.05" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
+    <axis xyz="0 0 1"/>
     <limit lower="${-PI/2}" upper="${PI/2}" effort="30" velocity="3.14"/>
     <dynamics damping="0.1" friction="0.05"/>
   </joint>
@@ -175,12 +175,12 @@
     </collision>
   </link>
 
-  <!-- J4: pan (revolute X) -->
+  <!-- J4: tilt (revolute Y) -->
   <joint name="JOINT_4_ACT" type="revolute">
     <parent link="link_ujnt_1"/>
     <child  link="link_tcp"/>
     <origin xyz="0 0 -0.05" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
+    <axis xyz="0 1 0"/>
     <limit lower="${-PI/2}" upper="${PI/2}" effort="20" velocity="3.14"/>
     <dynamics damping="0.05" friction="0.02"/>
   </joint>

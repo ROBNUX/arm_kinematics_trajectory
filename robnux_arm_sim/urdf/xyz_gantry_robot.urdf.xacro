@@ -6,7 +6,7 @@
   DH parameters used in simulation scripts (Craig convention):
     alpha = [0,  PI/2, -PI/2]
     a     = [0,  0,     0   ]
-    theta = [0,  0,     0   ]
+    theta = [0, -PI/2,  0   ]
     d     = [0,  0,     0   ]  (zeros: workspace centered at origin)
 
   IK mapping:

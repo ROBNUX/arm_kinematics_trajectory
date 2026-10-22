@@ -4,11 +4,11 @@ XYZ_UR 5-DOF robot simulation: XYZ Gantry + UJNT (2-DOF tilt/pan head).
 
 The XYZ_UR kinematics splits into two sub-modules:
   • XYZ sub-robot:  3 prismatic joints (Z, -Y, X)  [JOINT_0_ACT .. JOINT_2_ACT]
-  • UJNT sub-robot: 2 revolute joints (tilt, pan)   [JOINT_3_ACT .. JOINT_4_ACT]
+  • UJNT sub-robot: 2 revolute joints (pan, tilt)   [JOINT_3_ACT .. JOINT_4_ACT]
 
 DH parameters fed to xyz_ur CreateRobot (concatenation of both sub-modules):
   XYZ part (3-DOF):
-    alpha=[0, PI/2, -PI/2], a=[0,0,0], theta=[0,0,0], d=[0,0,0]
+    alpha=[0, PI/2, -PI/2], a=[0,0,0], theta=[0,-PI/2,0], d=[0,0,0]
   UJNT part (2-DOF, R-R U-joint):
     alpha=[0, -PI/2], a=[0,0], theta=[0,0], d=[0.05, 0.05]
     (chosen so that at q3=q4=0, joint3's axis is world Z (pan) and
@@ -39,7 +39,10 @@ PI = math.pi
 # alpha=[0, PI/2,-PI/2, 0, -PI/2]  (3 XYZ + 2 UJNT)
 ALPHA = [0.0,    PI/2,  -PI/2,  0.0,   -PI/2]
 A     = [0.0,    0.0,    0.0,    0.0,     0.0 ]
-THETA = [0.0,    0.0,    0.0,    0.0,     0.0 ]
+# theta[1] = -PI/2: with alpha=[0, PI/2, -PI/2] alone the third axis
+# turns back onto Z (a Z/-Y/Z gantry); the -PI/2 turn about joint 1 puts it
+# on X, matching XYZGantry::CartToJnt (q0=z, q1=-y, q2=x) and the URDF.
+THETA = [0.0,   -PI/2,   0.0,    0.0,     0.0 ]
 D     = [0.0,    0.0,    0.0,    0.05,    0.05]
 
 PARA = np.array([ALPHA + A + THETA + D]).T   # (20×1)
@@ -120,7 +123,7 @@ def main() -> int:
         print("\n--- Demo 3: Combined XYZ traverse + head tracking ---")
         rob.SetSpeed(m.Percent(50, 50, 50))
         combo = [
-            # [jnt0_Z, jnt1_Y, jnt2_X, jnt3_tilt_rad, jnt4_pan_rad]
+            # [jnt0_Z, jnt1_Y, jnt2_X, jnt3_pan_rad, jnt4_tilt_rad]
             [-0.2, 0.1, 0.2, math.radians(15), math.radians(10)],
             [-0.3, -0.1, -0.2, math.radians(-15), math.radians(-10)],
             [0.0, 0.0, 0.0, 0.0, 0.0],

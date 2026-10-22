@@ -97,7 +97,10 @@ def _scara_spec() -> ArmSpec:
 
 
 def _quattro_spec() -> ArmSpec:
-    para = np.array([[0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1, 0.0, 0.18 * math.sqrt(2)]]).T
+    # quattro_macro.xacro geometry (same as simulate_quattro.py and
+    # quattro_bot's test_quattro_rviz.cpp): R1, alpha, b1, c1, d1, h, r1, m.
+    # It used to be exactly 2x this, so it no longer matched the URDF.
+    para = np.array([[0.15, -PI / 2.0, 0.2, 0.0, 0.51, 0.05, 0.0, 0.09 * math.sqrt(2)]]).T
     return ArmSpec(
         name="quattro", robname="quattro", dof=3, para=para,
         profile_args=(2.0, 50.0, 1500.0, 2.0, 50.0, 1500.0),
@@ -135,9 +138,11 @@ def _quattro4_spec() -> ArmSpec:
 
 
 def _xyz_gantry_spec() -> ArmSpec:
+    # theta[1] = -PI/2 turns the third axis from Z onto X (same as
+    # simulate_xyz_gantry.py): XYZGantry::CartToJnt is q0=z, q1=-y, q2=x.
     ALPHA = [0.0, PI / 2, -PI / 2]
     A = [0.0, 0.0, 0.0]
-    THETA = [0.0, 0.0, 0.0]
+    THETA = [0.0, -PI / 2, 0.0]
     D = [0.0, 0.0, 0.0]
     para = np.array([ALPHA + A + THETA + D]).T
     return ArmSpec(
@@ -151,9 +156,10 @@ def _xyz_gantry_spec() -> ArmSpec:
 def _xyz_ur_spec() -> ArmSpec:
     # UJNT tail alpha=[0,-PI/2]: at q3=q4=0, joint3 axis=world Z (pan),
     # joint4 axis=world Y (tilt) -- must match UJNT::CartToJnt's derivation.
+    # Gantry part as in _xyz_gantry_spec (theta[1] = -PI/2).
     ALPHA = [0.0, PI / 2, -PI / 2, 0.0, -PI / 2]
     A = [0.0, 0.0, 0.0, 0.0, 0.0]
-    THETA = [0.0, 0.0, 0.0, 0.0, 0.0]
+    THETA = [0.0, -PI / 2, 0.0, 0.0, 0.0]
     D = [0.0, 0.0, 0.0, 0.05, 0.05]
     para = np.array([ALPHA + A + THETA + D]).T
     return ArmSpec(
@@ -214,7 +220,10 @@ def _rv2fr_spec() -> ArmSpec:
     return ArmSpec(
         name="rv2fr", robname="sixaxis_1", dof=6, para=para,
         profile_args=(0.05, 0.2, 2.0, 0.1, 0.5, 5.0),
-        joint_bounds=[(-PI * 0.9, PI * 0.9)] * 4 + [(-PI * 0.7, PI * 0.7)] + [(-PI * 0.9, PI * 0.9)],
+        # rv2fr_robot.urdf.xacro limits J1 (shoulder) to +-PI/2, unlike
+        # sixaxis_1's +-PI; the rest match.
+        joint_bounds=[(-PI * 0.9, PI * 0.9), (-PI / 2 * 0.92, PI / 2 * 0.92)]
+                     + [(-PI * 0.9, PI * 0.9)] * 2 + [(-PI * 0.7, PI * 0.7)] + [(-PI * 0.9, PI * 0.9)],
         singular_guards=[(4, 0.15)],
         ik_fail_tolerance=0.35,
         notes="real Mitsubishi RV-2FR-D model for further regression-testing "
