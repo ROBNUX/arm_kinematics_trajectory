@@ -1,4 +1,6 @@
 #include "robnux_kinematics_map/quattro_4.hpp"
+#include <cmath>
+#include <limits>
 // register plugin
 PLUGINLIB_EXPORT_CLASS(kinematics_lib::Quattro_4,
                        kinematics_lib::BaseKinematicMap)
@@ -7,7 +9,10 @@ namespace kinematics_lib {
 
 Quattro_4::Quattro_4()
     : BaseKinematicMap(4, 4),
-      branchFlags_(std::vector<int>(1, 0)),
+      // 3 flags (all unused) like Quattro: a Cartesian goal built from a
+      // pose's branch int always decodes to 3 (SingleInt2RobnuxBranch), and
+      // TrajectorySegment::setBoundCond rejects a size mismatch.
+      branchFlags_(std::vector<int>(3, 0)),
       jointTurns_(std::vector<int>(4, 0)) {
 
   tipPoints.resize(DoF_);
@@ -767,7 +772,7 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
                                   const double move_platform_length,
                                   Pose& pos) {
   std::ostringstream strs;
-  Vec n1 = B2 - B1;  // limb2 upper arm tip - limb1 uppder arm tip
+  Vec n1 = B2 - B1;  // limb2 upper arm tip - limb1 upper arm tip
   double norm_n1 = n1.Norm();
   if (norm_n1 < K_EPSILON) {
     strs.str("");
@@ -1084,64 +1089,94 @@ int Quattro_4::FindRootsWithEigen(const Vec& B1, const Vec& B2, const Vec& B3,
     LOG_ERROR(strs);
     return -33;
   }
-  // sol[0] is sin(alpha')
+  // Each root is sin(alpha'), and sin(beta') = p11 * sin(alpha') + p12, so
+  // every root gives 4 candidates: asin or PI-asin for each angle. Try them
+  // all; complex eigenvalues (only their real part is kept) and wrong
+  // branches fail the |p2 - p1| == m closure check.
+  //
+  // With the platform hanging below the base there are still two closures
+  // for the same joints, ~PI apart in yaw: the extended platform, whose
+  // p1->p2 link points from leg pair (1,2) toward leg pair (3,4), i.e. yaw
+  // near 3*PI/4 for symmetric legs, and a folded one near -PI/4. Keep the
+  // one closest to the extended orientation.
+  const double kNominalYaw = 3 * M_PI / 4;
   bool has_sol = false;
   Vec p1, p2;
-  double yaw;
+  double yaw = 0.0;
+  double best_yaw_dist = std::numeric_limits<double>::max();
   for (size_t i = 0; i < sol.size(); i++) {
-    // choose the root using the branchFlags_[0]
     double salphap = sol[i];
-    // recall root itself is sin(alpha')
     double sbetap = p11 * salphap + p12;
     if ((fabs(salphap) > 1.0) || (fabs(sbetap) > 1.0)) {
-      strs.str("");
-      strs << "FK fails because the chosen root of polynomial is > 1"
-                << " in function " << __FUNCTION__ << " at line " << __LINE__
-                << std::endl;
-      LOG_ERROR(strs);
-      return -34;
+      continue;
     }
-    // next branch flag, branchFlags_[1], determines which final solution
-    // to use: asin/asin, PI-asin/asin, asin/PI-asin, or PI-asin/PI-asin
-    double alpha, beta, ca, sa, cb, sb;
-    if (branchFlags_[0] == 0) {
-      alpha = asin(salphap) - ta;
-      beta = asin(sbetap) - tb;
-    } else if (branchFlags_[1] == 1) {
-      alpha = M_PI - asin(salphap) - ta;
-      beta = asin(sbetap) - tb;
-    } else if (branchFlags_[1] == 2) {
-      alpha = asin(salphap) - ta;
-      beta = M_PI - asin(sbetap) - tb;
-    } else {
-      alpha = M_PI - asin(salphap) - ta;
-      beta = M_PI - asin(sbetap) - tb;
-    }
-    ca = cos(alpha);
-    sa = sin(alpha);
-    cb = cos(beta);
-    sb = sin(beta);
-    p1.set_x(matK1[0] * ca + matK1[1] * sa + matK1[2]);
-    p1.set_y(matK1[3] * ca + matK1[4] * sa + matK1[5]);
-    p1.set_z(matK1[6] * ca + matK1[7] * sa + matK1[8]);
-
-    p2.set_x(matK2[0] * cb + matK2[1] * sb + matK2[2]);
-    p2.set_y(matK2[3] * cb + matK2[4] * sb + matK2[5]);
-    p2.set_z(matK2[6] * cb + matK2[7] * sb + matK2[8]);
-
-    Vec diffP = p2 - p1;
-    double diffP_norm = diffP.Norm();
-    yaw = atan2(diffP.y(), diffP.x());
-    if (fabs(diffP_norm - ee) < QUATTRO_4_LINKLENGTH_DIFF &&
-        (yaw > M_PI / 4 - K_EPSILON || yaw < -3 * M_PI / 4 + K_EPSILON) &&
-        p2.z() < 0) {
-      has_sol = true;
-      break;
-    } else {
-      strs.str("");
-      strs << "solution check fails, diffP_norm-ee= "
-                << fabs(diffP_norm - ee) << ", yaw=" << yaw << std::endl;
-      LOG_ERROR(strs);
+    for (int ab = 0; ab < 4; ab++) {
+      double alpha = (ab & 1) ? M_PI - asin(salphap) - ta : asin(salphap) - ta;
+      double beta = (ab & 2) ? M_PI - asin(sbetap) - tb : asin(sbetap) - tb;
+      double ca = cos(alpha);
+      double sa = sin(alpha);
+      double cb = cos(beta);
+      double sb = sin(beta);
+      Vec c1(matK1[0] * ca + matK1[1] * sa + matK1[2],
+             matK1[3] * ca + matK1[4] * sa + matK1[5],
+             matK1[6] * ca + matK1[7] * sa + matK1[8]);
+      Vec c2(matK2[0] * cb + matK2[1] * sb + matK2[2],
+             matK2[3] * cb + matK2[4] * sb + matK2[5],
+             matK2[6] * cb + matK2[7] * sb + matK2[8]);
+      Vec diffP = c2 - c1;
+      if (fabs(diffP.Norm() - ee) >= QUATTRO_4_LINKLENGTH_DIFF || c2.z() >= 0) {
+        continue;
+      }
+      // The eigenvalue roots are only accurate to ~1e-5, so polish
+      // (alpha, beta) with Newton on the two closure equations:
+      // c1.z == c2.z and |c2 - c1|^2 == ee^2.
+      for (int it = 0; it < 10; it++) {
+        Vec dc1(-matK1[0] * sa + matK1[1] * ca, -matK1[3] * sa + matK1[4] * ca,
+                -matK1[6] * sa + matK1[7] * ca);
+        Vec dc2(-matK2[0] * sb + matK2[1] * cb, -matK2[3] * sb + matK2[4] * cb,
+                -matK2[6] * sb + matK2[7] * cb);
+        double f1 = c1.z() - c2.z();
+        double f2 = diffP.dot(diffP) - ees;
+        if (fabs(f1) + fabs(f2) < 1e-15) {
+          break;
+        }
+        double j11 = dc1.z(), j12 = -dc2.z();
+        double j21 = -2 * diffP.dot(dc1), j22 = 2 * diffP.dot(dc2);
+        double det = j11 * j22 - j12 * j21;
+        if (fabs(det) < K_EPSILON) {
+          break;
+        }
+        alpha -= (j22 * f1 - j12 * f2) / det;
+        beta -= (-j21 * f1 + j11 * f2) / det;
+        ca = cos(alpha);
+        sa = sin(alpha);
+        cb = cos(beta);
+        sb = sin(beta);
+        c1 = Vec(matK1[0] * ca + matK1[1] * sa + matK1[2],
+                 matK1[3] * ca + matK1[4] * sa + matK1[5],
+                 matK1[6] * ca + matK1[7] * sa + matK1[8]);
+        c2 = Vec(matK2[0] * cb + matK2[1] * sb + matK2[2],
+                 matK2[3] * cb + matK2[4] * sb + matK2[5],
+                 matK2[6] * cb + matK2[7] * sb + matK2[8]);
+        diffP = c2 - c1;
+      }
+      // Newton converges to machine precision unless the two closures merge
+      // (workspace boundary, a double root); reject those rather than
+      // returning a pose that is off by up to QUATTRO_4_LINKLENGTH_DIFF.
+      const double kClosureTol = 1e-9;
+      if (fabs(diffP.Norm() - ee) >= kClosureTol ||
+          fabs(c1.z() - c2.z()) >= kClosureTol || c2.z() >= 0) {
+        continue;
+      }
+      double c_yaw = atan2(diffP.y(), diffP.x());
+      double yaw_dist = fabs(std::remainder(c_yaw - kNominalYaw, 2 * M_PI));
+      if (yaw_dist < best_yaw_dist) {
+        best_yaw_dist = yaw_dist;
+        p1 = c1;
+        p2 = c2;
+        yaw = c_yaw;
+        has_sol = true;
+      }
     }
   }
 

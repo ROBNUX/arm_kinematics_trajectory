@@ -37,11 +37,15 @@ QUATTRO_PARA = np.array([[
 ]]).T
 
 # ─────────────── Quattro_4 4-DoF parameters ─────────────────────────────────
-# Parameters matching quattro_4_macro.xacro defaults (see quattro_bot)
+# Parameters matching quattro_4_macro.xacro defaults (see quattro_bot):
+#   [R1, alpha, b1, c1, d1, h, m_platform, v1x, v1y, v2x, v2y]
+# Quattro_4::SetGeometry needs all 11 (it silently ignores a shorter vector,
+# leaving the robot uninitialized), and m_platform must be > 0.
 QUATTRO4_PARA = np.array([[
-    0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1,
-    0.0,  0.0,                           # v1x, v1y offsets
-    0.12, 0.12,                          # v2x, v2y offsets
+    0.15, -PI / 2.0, 0.2, 0.0, 0.51, 0.05,
+    0.127,                               # m_platform (length_12)
+    0.09, 0.09,                          # v1x, v1y offsets
+    0.0,  0.0,                           # v2x, v2y offsets
 ]]).T
 
 BASE_OFF = np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]]).T
@@ -76,7 +80,8 @@ def run_quattro(dof4: bool) -> int:
 
     print(f"\nHome: x={home_loc.x:.4f}  y={home_loc.y:.4f}  z={home_loc.z:.4f}")
     if dof4:
-        print(f"      yaw={math.degrees(home_loc.A):.2f}°")
+        # Quattro_4 yaw is LocData.C (rotation about Z); nominally 135 deg
+        print(f"      yaw={math.degrees(home_loc.C):.2f}°")
     cfg, turns = home_loc.G, home_loc.T
 
     for i in range(dof):
@@ -87,14 +92,19 @@ def run_quattro(dof4: bool) -> int:
 
     fd = m.FrameData(1, 1, m.IpoMode.WORLD)
     Z  = home_loc.z
+    # Quattro_4 (quattro_bot geometry) is much smaller than the 3-DoF model,
+    # and its home is off-centre, so its demo moves around home instead.
+    X0, Y0 = (home_loc.x, home_loc.y) if dof4 else (0.0, 0.0)
+    YAW0 = home_loc.C if dof4 else 0.0
 
     def loc(x, y, z, yaw=0.0):
-        return m.LocData(x, y, z, yaw if dof4 else 0, 0, 0, cfg, turns)
+        # yaw is relative to home and goes in C (about Z) for Quattro_4
+        return m.LocData(X0 + x, Y0 + y, z, 0, 0, YAW0 + yaw if dof4 else 0, cfg, turns)
 
     try:
         # ── demo 1: XY square path ────────────────────────────────────────────
         print("\n--- Demo 1: Cartesian square path ---")
-        R = 0.30
+        R = 0.08 if dof4 else 0.30
         square = [
             loc( R,  R, Z),
             loc(-R,  R, Z),
@@ -104,13 +114,13 @@ def run_quattro(dof4: bool) -> int:
         ]
         for i, wp in enumerate(square):
             rob.MoveLine(wp, fd, 10)
-            print(f"  Step {i}: ({wp.x:.2f}, {wp.y:.2f})")
+            print(f"  Step {i}: ({wp.x:.3f}, {wp.y:.3f})")
         wait_done(rob)
 
         # ── demo 2: Z-stroke ─────────────────────────────────────────────────
         print("\n--- Demo 2: Z stroke ---")
-        rob.MoveLine(loc(0.0, 0.0, Z - 0.15), fd, 5)
-        rob.MoveLine(loc(0.0, 0.0, Z + 0.10), fd, 5)
+        rob.MoveLine(loc(0.0, 0.0, Z - (0.10 if dof4 else 0.15)), fd, 5)
+        rob.MoveLine(loc(0.0, 0.0, Z + (0.05 if dof4 else 0.10)), fd, 5)
         rob.MoveLine(loc(0.0, 0.0, Z),        fd, 0)
         wait_done(rob)
         print("  Z stroke complete.")

@@ -116,14 +116,16 @@ def _quattro4_spec() -> ArmSpec:
     # missing the trailing v2y, leaving the array 1 short of the required
     # 11; SetGeometry silently no-ops (never sets initialized_=True) when
     # given too few values, so every FK/IK call failed with "not
-    # initialized". v2y=0.0 completes the (v1x,v1y)=(0,0.12),
-    # (v2x,v2y)=(0.12,0.0) pair as a platform with attachment points at
-    # radius 0.12, 90 degrees apart -- matching the given v1x=0/v2x=0.12
-    # symmetry (adjust if the real platform geometry differs).
+    # initialized".
+    # Values are quattro_bot's quattro_4_macro.xacro / test_quattro4_rviz.cpp
+    # geometry. m (index 6) is the platform link length and must be > 0: it
+    # used to be 0.0 (index 6 is r1 in the 3-DoF quattro layout), which
+    # collapses the platform to a point so 4 legs over-constrain 3 DOF and
+    # almost no joint vector closes the loop (FK "unreachable" every time).
     para = np.array([[
-        0.3, -PI / 2.0, 0.4, 0.0, 1.02, 0.1, 0.0,
-        0.0, 0.12,
-        0.12, 0.0,
+        0.15, -PI / 2.0, 0.2, 0.0, 0.51, 0.05, 0.127,
+        0.09, 0.09,
+        0.0, 0.0,
     ]]).T
     return ArmSpec(
         name="quattro_4", robname="quattro_4", dof=4, para=para,

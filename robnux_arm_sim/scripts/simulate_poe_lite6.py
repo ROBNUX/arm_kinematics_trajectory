@@ -71,7 +71,8 @@ _TL_POS = [
 
 _TOOL_OFFSET = [0, 0, 0.070]   # wrist → flange
 
-# q=0: arm extends in +X at (0.280, 0, 0.640). Small J2 bend avoids singularity.
+# q=0: arm straight up, flange at (0, 0, 0.920) -- fully stretched (elbow
+# singularity), so the demos start from READY_JNT instead.
 HOME_JNT  = np.zeros(DOF)
 # J5 (index 4) away from 0: there wrist axes J4 and J6 are parallel (wrist
 # singularity). From this pose the demo's XZ box stays on one IK branch.

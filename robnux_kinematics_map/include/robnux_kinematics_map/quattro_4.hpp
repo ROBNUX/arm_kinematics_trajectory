@@ -83,14 +83,10 @@ class KINEMATICS_API Quattro_4 : public BaseKinematicMap {
   // characteristic length
   double char_length_;
 
-  // there are two branch flags here
-  // it picks which root one-by-one until finding the correct solution in
-  // possibly up to 16 roots, in fact, we have to go through all roots to verify
-  // if the FK is success or not branchFlags_[0] takes value in (0,3) (because
-  // each root of polynormial, there could be 4 solutions to sinA=a, sinB=b if
-  // branchFlags_[1] = 0, then we choose (asin, asin), if branchFlags_[1] = 1,
-  // then we choose (PI-asin, asin) if branchFlags_[1] = 2, then we choose
-  // (asin, PI-asin) if branchFlags_[1] = 3, then we choose (PI-asin, PI-asin)
+  // branch flags reported by FK; currently all 0 and unused. FK tries every
+  // polynomial root with all 4 (asin / PI-asin) combinations and picks the
+  // hanging, extended closure itself (see FindRootsWithEigen), and IK always
+  // uses the elbow-down solution of each arm.
   std::vector<int> branchFlags_;
   // turn flags
   std::vector<int> jointTurns_;
